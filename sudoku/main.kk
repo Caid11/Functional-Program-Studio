@@ -1,5 +1,3 @@
-// Sudoku solver & generator
-
 import std/os/file
 import std/os/path
 import std/os/env
@@ -14,7 +12,11 @@ type compileMode
   Solve( puzzlePath : string )
   Generate( num-grids-high : int, num-grids-wide : int, num-cells-to-fill : int )
 
+effect parse-err
+  ctl parse-err( msg : string ) : a
+
 fun parse-args()
+  var solve-usage-msg := "Usage: solve puzzle-path"
   var generate-usage-msg := "Usage: generate num-grids-high num-grids-wide [num-cells-to-fill]"
 
   var args := get-args()
@@ -23,7 +25,7 @@ fun parse-args()
     match args-r
       Nil -> Generate(num-grids-high, num-grids-wide, num-grids-high * num-grids-wide * num-grids-high * num-grids-wide )
       Cons(str, Nil) -> Generate(num-grids-high, num-grids-wide, str.parse-int.unjust)
-      _ -> throw(generate-usage-msg)
+      _ -> parse-err(generate-usage-msg)
 
   fun parse-grids-wide( num-grids-high : int, args-r : list<string> )
     match args-r
@@ -32,17 +34,20 @@ fun parse-args()
   fun parse-grids-high( args-r )
     match args-r
       Cons(str, rest) -> parse-grids-wide( str.parse-int.unjust, rest )
-      _ -> throw(generate-usage-msg)
+      _ -> parse-err(generate-usage-msg)
 
   fun parse-solve-path( args-r )
     match args-r
       Cons(str, Nil) -> Solve(str)
-      _ -> throw("Usage: solve puzzle-path")
+      _ -> parse-err("Usage: solve puzzle-path")
 
-  match args
-    Cons("generate", rest) -> parse-grids-high(rest)
-    Cons("solve", rest) -> parse-solve-path(rest)
-    _ -> throw("Usage: [solve/generate] [args]")
+  if args.find( fn(x) { x == "-h" }).is-just then
+    parse-err( solve-usage-msg ++ " OR\n" ++ generate-usage-msg )
+  else
+    match args
+      Cons("generate", rest) -> parse-grids-high(rest)
+      Cons("solve", rest) -> parse-solve-path(rest)
+      _ -> parse-err("Usage: [solve/generate] [args]")
 
 // Puzzle functions
 //==============================================================================
@@ -295,6 +300,9 @@ fun generate-puzzle( grids-high, grids-wide, num-cells-to-fill )
 //==============================================================================
 
 fun main()
+  with handler
+    ctl parse-err( msg ) println( msg )
+
   var compile-mode := parse-args()
 
   match compile-mode
