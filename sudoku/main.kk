@@ -97,11 +97,9 @@ fun collect-row(p : puzzle, cell-idx : int)
   fun collect-row-r(idx, acc)
     if idx >= hi-idx then acc
     else
-      match p.cells[idx]
-        Just(cell) ->
-          match cell
-            Empty -> collect-row-r(idx + 1, acc)
-            Number(num) -> collect-row-r(idx + 1, acc ++ [num])
+      match p.cells[idx].unjust
+        Empty -> collect-row-r(idx + 1, acc)
+        Number(num) -> collect-row-r(idx + 1, acc ++ [num])
   collect-row-r(low-idx, [])
 
 fun collect-grid(p : puzzle, cell-idx : int)
