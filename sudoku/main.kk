@@ -1,9 +1,51 @@
+// Sudoku solver & generator
+
 import std/os/file
 import std/os/path
 import std/os/env
 import std/num/random
 
 import sort
+
+// Argument parsing
+//==============================================================================
+
+type compileMode
+  Solve( puzzlePath : string )
+  Generate( num-grids-high : int, num-grids-wide : int, num-cells-to-fill : int )
+
+fun parse-args()
+  var generate-usage-msg := "Usage: generate num-grids-high num-grids-wide [num-cells-to-fill]"
+
+  var args := get-args()
+
+  fun parse-cells-to-fill( num-grids-high : int, num-grids-wide : int, args-r : list<string> )
+    match args-r
+      Nil -> Generate(num-grids-high, num-grids-wide, num-grids-high * num-grids-wide * num-grids-high * num-grids-wide )
+      Cons(str, Nil) -> Generate(num-grids-high, num-grids-wide, str.parse-int.unjust)
+      _ -> throw(generate-usage-msg)
+
+  fun parse-grids-wide( num-grids-high : int, args-r : list<string> )
+    match args-r
+      Cons(str, rest) -> parse-cells-to-fill( num-grids-high, str.parse-int.unjust, rest )
+
+  fun parse-grids-high( args-r )
+    match args-r
+      Cons(str, rest) -> parse-grids-wide( str.parse-int.unjust, rest )
+      _ -> throw(generate-usage-msg)
+
+  fun parse-solve-path( args-r )
+    match args-r
+      Cons(str, Nil) -> Solve(str)
+      _ -> throw("Usage: solve puzzle-path")
+
+  match args
+    Cons("generate", rest) -> parse-grids-high(rest)
+    Cons("solve", rest) -> parse-solve-path(rest)
+    _ -> throw("Usage: [solve/generate] [args]")
+
+// Puzzle functions
+//==============================================================================
 
 ref type cell
   Empty
@@ -82,7 +124,50 @@ fun collect-grid(p : puzzle, cell-idx : int)
   
   collect-grid-r(row-lo, col-lo, [])
 
+fun show-cell( c : cell, cell-width : int ) : string
+  match c
+    Empty -> " " ++ " ".repeat( cell-width ) ++ " |"
+    Number(num) -> 
+      var pad-width := cell-width - num.show.count
+      " " ++ num.show ++ " ".repeat( pad-width ) ++ " |"
+
+fun show-cells( num-grid-cells : int, row-width : int, c : list<cell>, i : int )
+  val max-cell-width = num-grid-cells.show.count
+
+  if i >= c.length then ()
+  else
+    match c[i]
+      Just(cell) ->
+        print(cell.show-cell( max-cell-width ))
+        if (i + 1) %  row-width == 0 then
+          println("")
+        else
+          print("")
+        show-cells( num-grid-cells, row-width, c, i + 1 )
+
+fun show-puzzle( p : puzzle )
+  println(p.num-grids-high.show ++ " " ++ p.num-grids-wide.show)
+  show-cells(p.num-grid-cells, p.num-grids-high * p.num-grids-wide, p.cells, 0)
+
+fun delete-random-cells(p : puzzle, num-to-delete : int )
+  if num-to-delete == 0 then p
+  else
+    val delete-idx = int(random-float64() * float64(p.num-cells - 1))
+    match p.cells[delete-idx]
+      Just(cell) ->
+        match cell
+          Empty -> delete-random-cells(p, num-to-delete)
+          Number(_) ->
+            delete-random-cells(
+              Puzzle(
+                p.num-grids-high, p.num-grids-wide,
+                p.cells.take(delete-idx) ++ [Empty] ++ p.cells.drop(delete-idx + 1)
+              ),
+              num-to-delete - 1
+            )
+
 // Puzzle TXT file parsing
+//==============================================================================
 
 fun parse( txt : string )
   fun parse-cells( num-grids-high : int, num-grids-wide : int, txt-slc : sslice, num-str : string, acc : list<cell> )
@@ -118,30 +203,8 @@ fun parse( txt : string )
 
   parse-grids-high(txt.slice, "")
 
-// Print parsed puzzle
-
-fun show-cell( c : cell ) : string
-  match c
-    Empty -> "   |"
-    Number(num) -> " " ++ num.show ++ " |"
-
-fun show-cells( row-width : int, c : list<cell>, i : int )
-  if i >= c.length then ()
-  else
-    match c[i]
-      Just(cell) ->
-        print(cell.show-cell)
-        if (i + 1) %  row-width == 0 then
-          println("")
-        else
-          print("")
-        show-cells( row-width, c, i + 1)
-
-fun show-puzzle( p : puzzle )
-  println(p.num-grids-high.show ++ " " ++ p.num-grids-wide.show)
-  show-cells(p.num-grids-high * p.num-grids-wide, p.cells, 0)
-
 // List utility methods
+//==============================================================================
 
 fun elim-dups(l)
   fun accum-if-diff(acc : list<int>, x : int)
@@ -157,51 +220,8 @@ fun elim-dups(l)
 fun all-unique(l : list<int>)
   elim-dups(l).length == l.length
 
-// Puzzle solving 
-
-fun is-legal( p : puzzle, i : int )
-  all-unique(collect-col(p, i)) && all-unique(collect-row(p, i)) && all-unique(collect-grid(p, i))
-
-fun is-legal-all( p : puzzle )
-  fun is-legal-all-r( idx )
-    if idx >= p.num-cells then True
-    else
-      all-unique(collect-col(p, idx)) && all-unique(collect-row(p, idx)) && all-unique(collect-grid(p, idx)) && is-legal-all-r(idx + 1)
-  
-  is-legal-all-r( 0 )
-
-fun solve( p : puzzle )
-  fun solve-r( pr : puzzle, idx )
-    fun solve-cell( pc : puzzle, cell-idx : int, num : int )
-      if num > pc.num-grid-cells then Nothing
-      else
-        val puz-with-num = Puzzle(pc.num-grids-high, pc.num-grids-wide, pc.cells.take(cell-idx) ++ [Number(num)] ++ pc.cells.drop(cell-idx + 1))
-        match solve-r( puz-with-num, cell-idx + 1 )
-          Nothing -> solve-cell( pc, cell-idx, num + 1 )
-          Just( puz ) -> Just( puz )
-
-    if !is-legal-all(pr) then Nothing
-    else if idx >= p.num-cells then Just( pr )
-    else
-      match pr.cells[idx]
-        Just(cell) ->
-          match cell
-            Number(_) -> solve-r( pr, idx + 1 )
-            Empty -> solve-cell( pr, idx, 1 )
-
-  solve-r( p, 0 )
-
-fun solve-puzzle(puzzle-path : string)
-  var txt := read-text-file(puzzle-path.path)
-  var puzzle := parse(txt)
-  println(puzzle.show-puzzle)
-  println("")
-
-  match solve(puzzle)
-    Nothing -> println("Unsolvable")
-    Just(puz) -> println(puz.show-puzzle)
-
-fun get-random-nums(num-cells : int )
+// Generate a list of random numbers from 1 to n (inclusive)
+fun random-number-list( n : int )
   fun swap(l : list<int>, idx1 : int, idx2 : int, i : int, acc : list<int> )
     if i >= l.length then acc
     else if i == idx1 then
@@ -217,104 +237,62 @@ fun get-random-nums(num-cells : int )
   fun shuffle(l : list<int>, num-shufs : int )
     if num-shufs == 0 then l
     else
-      val shf-idx1 = int(random-float64() * float64(num-cells - 1))
-      val shf-idx2 = int(random-float64() * float64(num-cells - 1))
+      val shf-idx1 = int(random-float64() * float64(n - 1))
+      val shf-idx2 = int(random-float64() * float64(n - 1))
       val swapped = swap(l, shf-idx1, shf-idx2, 0, [])
       shuffle(swapped, num-shufs - 1)
 
-  shuffle(list(1, num-cells), num-cells * 2)
+  shuffle(list(1, n), n * 2)
 
-// pub fun test-random-nums()
-//   println(get-random-nums(9).show)
-            
-fun delete-random-cells(p : puzzle, num-to-delete : int )
-  if num-to-delete == 0 then p
+// Puzzle solving 
+//==============================================================================
+
+fun is-legal-all( p : puzzle )
+  fun is-legal-all-r( idx )
+    if idx >= p.num-cells then True
+    else
+      all-unique(collect-col(p, idx)) && all-unique(collect-row(p, idx)) && all-unique(collect-grid(p, idx)) && is-legal-all-r(idx + 1)
+  
+  is-legal-all-r( 0 )
+
+fun solve-idx( p : puzzle, idx : int, num-func )
+  if !is-legal-all(p) then Nothing
+  else if idx >= p.num-cells then Just( p )
   else
-    val delete-idx = int(random-float64() * float64(p.num-cells - 1))
-    match p.cells[delete-idx]
-      Just(cell) ->
-        match cell
-          Empty -> delete-random-cells(p, num-to-delete)
-          Number(_) ->
-            delete-random-cells(
-              Puzzle(
-                p.num-grids-high, p.num-grids-wide,
-                p.cells.take(delete-idx) ++ [Empty] ++ p.cells.drop(delete-idx + 1)
-              ),
-              num-to-delete - 1
-            )
+    match p.cells[idx].unjust
+      Number(_) -> solve-idx( p, idx + 1, num-func )
+      Empty -> solve-cell( p, idx, num-func(), num-func )
 
-fun generate-puzzle(grids-high, grids-wide, num-cells-to-fill)
-  val p = Puzzle(grids-high, grids-wide, list(1, grids-high * grids-wide * grids-wide * grids-high).map(fn(_) {Empty}))
+fun solve-cell( p : puzzle, cell-idx : int, numbers : list<int>, num-func )
+  match numbers
+    Nil -> Nothing
+    Cons(x, xs) ->
+      val puz-with-num = Puzzle(p.num-grids-high, p.num-grids-wide, p.cells.take(cell-idx) ++ [Number(x)] ++ p.cells.drop(cell-idx + 1))
+      match solve-idx( puz-with-num, cell-idx + 1, num-func )
+        Nothing -> solve-cell( p, cell-idx, xs, num-func )
+        Just( puz ) -> Just( puz )
 
-  // Solve an empty puzzle by choosing a valid random value each iteration. When the puzzle is complete, delete squares.
-  fun solve-r( pr : puzzle, idx )
-    fun solve-cell( pc : puzzle, cell-idx : int, numbers : list<int> )
-      match numbers
-        Nil -> Nothing
-        Cons(x, xs) ->
-          val puz-with-num = Puzzle(pc.num-grids-high, pc.num-grids-wide, pc.cells.take(cell-idx) ++ [Number(x)] ++ pc.cells.drop(cell-idx + 1))
-          match solve-r( puz-with-num, cell-idx + 1 )
-            Nothing -> solve-cell( pc, cell-idx, xs )
-            Just( puz ) -> Just( puz )
+fun solve-puzzle( puzzle-path : string )
+  var txt := read-text-file(puzzle-path.path)
+  var puzzle := parse(txt)
+  println(puzzle.show-puzzle)
+  println("")
 
-    if !is-legal-all(pr) then Nothing
-    else if idx >= p.num-cells then Just( pr )
-    else
-      match pr.cells[idx]
-        Just(cell) ->
-          match cell
-            Number(_) -> solve-r( pr, idx + 1 )
-            Empty -> solve-cell( pr, idx, get-random-nums(grids-high * grids-wide) )
+  match solve-idx( puzzle, 0, fn() { list( 1, puzzle.num-grid-cells ) } )
+    Nothing -> println("Unsolvable")
+    Just(puz) -> println(puz.show-puzzle)
 
-  match solve-r( p, 0 )
-    Just(puz) ->
-      val cells-to-delete = puz.num-cells - num-cells-to-fill
-      println(puz.show-puzzle)
-      println(delete-random-cells(puz, cells-to-delete).show-puzzle)
+fun generate-puzzle( grids-high, grids-wide, num-cells-to-fill )
+  val empty-puzzle = Puzzle(grids-high, grids-wide, list(1, grids-high * grids-wide * grids-wide * grids-high).map(fn(_) {Empty}))
+  val random-solved = solve-idx( empty-puzzle, 0, fn() { random-number-list( empty-puzzle.num-grid-cells ) } ).unjust
 
-type compileMode
-  Solve(puzzlePath : string)
-  Generate( num-grids-high : int, num-grids-wide : int, num-cells-to-fill : int)
+  val num-cells-to-delete = random-solved.num-cells - num-cells-to-fill
+  val puzzle-with-deleted = delete-random-cells( random-solved, num-cells-to-delete )
 
-fun parse-args()
-  var args := get-args()
+  println(puzzle-with-deleted.show-puzzle)
 
-  fun parse-cells-to-fill( num-grids-high : int, num-grids-wide : int, args-r : list<string> )
-    if args-r.length != 1 then
-      throw("Usage: generate num-grids-high num-grids-wide num-cells-to-fill")
-    else
-      match args-r
-        Cons(str, _) ->
-          match str.parse-int
-            Just(num) -> Generate(num-grids-high, num-grids-wide, num)
-
-
-  fun parse-grids-wide(num-grids-high : int, args-r : list<string>)
-    match args-r
-      Cons(str, rest) ->
-        match str.parse-int
-          Just(num) -> parse-cells-to-fill( num-grids-high, num, rest )
-
-  fun parse-grids-high(args-r)
-    match args-r
-      Cons(str, rest) ->
-        match str.parse-int
-          Just(num) -> 
-            parse-grids-wide(num, rest)
-      _ -> throw("Usage: generate num-grids-high num-grids-wide num-cells-to-fill")
-
-  fun parse-solve-path(args-r : list<string>)
-    if args-r.length != 1 then
-      throw("Usage: solve puzzle-path")
-    else
-      match args-r
-        Cons(str, _) -> Solve(str)
-
-  match args
-    Cons("generate", rest) -> parse-grids-high(rest)
-    Cons("solve", rest) -> parse-solve-path(rest)
-    _ -> throw("Usage: [solve/generate] [args]")
+// main
+//==============================================================================
 
 fun main()
   var compile-mode := parse-args()
