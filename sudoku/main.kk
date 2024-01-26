@@ -80,7 +80,7 @@ fun num-grid-cells( p : puzzle ) : int
 fun num-cells( p : puzzle ) : int
   p.row-width * p.col-height
 
-fun is-legal( p : puzzle, cell-idx : int, num : int )
+fun is-legal( p : puzzle, cell-idx : int, num : int ) : <div,exn> bool
   fun is-legal-r( i : int, idx-func )
     if i >= p.num-grid-cells then True
     else
@@ -232,14 +232,14 @@ fun random-number-list( n : int ) : <div, exn, random> list<int>
 effect select<a>
   ctl select( choices : list<int> ) : a
 
-fun solve-idx( p : puzzle, idx : int ) // : <div,exn,local<_h>,select<(int, list<int>)>> maybe<puzzle>
+fun solve-idx( p : puzzle, idx : int ) : <div,exn,local<_h>,ndet,prof-evt,select<(int, list<int>)>> maybe<puzzle>
   if idx >= p.num-cells then Just( p )
   else
     match p.cells[idx].unjust
       Number(_) -> profile( "solve-idx", { solve-idx( p, idx + 1 ) } )
       Empty -> profile( "solve-cell", { solve-cell( p, idx, list( 1, p.num-grid-cells ) ) } )
 
-fun solve-cell( p : puzzle, cell-idx : int, possiblities : list<int> ) // : <div,exn,select<(int, list<int>)>,local<_h>> maybe<puzzle>
+fun solve-cell( p : puzzle, cell-idx : int, possiblities : list<int> ) : <div,exn,local<_h>,ndet,prof-evt,select<(int, list<int>)>> maybe<puzzle>
   match possiblities
     Nil -> Nothing
     _ ->
@@ -266,7 +266,7 @@ fun solve-puzzle( puzzle-path : string ) // : <console,div,exn,fsys> ()
     Nothing -> println("Unsolvable")
     Just( puz ) -> println( puz.show-puzzle )
 
-fun generate-puzzle( grids-high, grids-wide, num-cells-to-fill ) // : <console,div,exn,random> ()
+fun generate-puzzle( grids-high, grids-wide, num-cells-to-fill ) : <console,div,exn,ndet,prof-evt,random> ()
   val empty-puzzle = Puzzle( grids-high, grids-wide, list( 1, grids-high * grids-wide * grids-wide * grids-high ).map( fn(_) {Empty}))
 
   with ctl select( choices : list<int> )
