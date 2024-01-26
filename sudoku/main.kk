@@ -2,31 +2,9 @@ import std/os/file
 import std/os/path
 import std/os/env
 import std/num/random
-import std/time/duration
 import std/time/timer
 
-// Profiling utilities
-
-struct benchEvent
-  name : string
-  phase : string
-  ts : int
-
-effect bench-evt
-  ctl bnch-beg( name : string ) : ()
-  ctl bnch-end( name : string ) : ()
-
-// fun bench( name : string, func )
-//   bnch-beg( name )
-//   val ret = func()
-//   bnch-end( name )
-//   ret
-
-fun bench( name : string, func )
-  func()
-
-fun ticks-microseconds()
-  ticks().nano-seconds / 1000
+import profile
 
 // Argument parsing
 //==============================================================================
@@ -258,8 +236,8 @@ fun solve-idx( p : puzzle, idx : int ) // : <div,exn,local<_h>,select<(int, list
   if idx >= p.num-cells then Just( p )
   else
     match p.cells[idx].unjust
-      Number(_) -> bench( "solve-idx", { solve-idx( p, idx + 1 ) } )
-      Empty -> bench( "solve-cell", { solve-cell( p, idx, list( 1, p.num-grid-cells ) ) } )
+      Number(_) -> profile( "solve-idx", { solve-idx( p, idx + 1 ) } )
+      Empty -> profile( "solve-cell", { solve-cell( p, idx, list( 1, p.num-grid-cells ) ) } )
 
 fun solve-cell( p : puzzle, cell-idx : int, possiblities : list<int> ) // : <div,exn,select<(int, list<int>)>,local<_h>> maybe<puzzle>
   match possiblities
@@ -268,11 +246,11 @@ fun solve-cell( p : puzzle, cell-idx : int, possiblities : list<int> ) // : <div
       val (next-try, rest) = select( possiblities )
       if p.is-legal( cell-idx, next-try ) then
         val puz-with-num = Puzzle( p.num-grids-high, p.num-grids-wide, p.cells.take( cell-idx ) ++ [Number( next-try )] ++ p.cells.drop( cell-idx + 1 ))
-        match bench( "solve-idx", { solve-idx( puz-with-num, cell-idx + 1 ) } )
-          Nothing -> bench( "solve-cell", { solve-cell( p, cell-idx, rest ) } )
+        match profile( "solve-idx", { solve-idx( puz-with-num, cell-idx + 1 ) } )
+          Nothing -> profile( "solve-cell", { solve-cell( p, cell-idx, rest ) } )
           Just( puz ) -> Just( puz )
       else
-        bench( "solve-cell", { solve-cell( p, cell-idx, rest ) } )
+        profile( "solve-cell", { solve-cell( p, cell-idx, rest ) } )
 
 fun solve-puzzle( puzzle-path : string ) // : <console,div,exn,fsys> ()
   val txt = read-text-file( puzzle-path.path )
@@ -284,7 +262,7 @@ fun solve-puzzle( puzzle-path : string ) // : <console,div,exn,fsys> ()
     match choices
       Cons( x, xs ) -> resume( (x, xs) )
 
-  match bench( "solve-idx", { solve-idx( puzzle, 0 ) } )
+  match profile( "solve-idx", { solve-idx( puzzle, 0 ) } )
     Nothing -> println("Unsolvable")
     Just( puz ) -> println( puz.show-puzzle )
 
@@ -305,32 +283,21 @@ fun generate-puzzle( grids-high, grids-wide, num-cells-to-fill ) // : <console,d
 // main
 //==============================================================================
 
-fun main() : <console,div,exn,fsys,ndet,random> ()
+fun main() : <alloc<global>,write<global>,read<global>,ui,console,div,exn,fsys,ndet,random,net> ()
   with handler
     ctl parse-err( msg ) println( msg )
 
-  // var bnch-evts := Nil
-  // with handler
-  //   ctl bnch-beg( name )
-  //     bnch-evts := Cons( BenchEvent( name, "B", ticks-microseconds() ), bnch-evts )
-  //     resume( () )
-  //   ctl bnch-end( name )
-  //     bnch-evts := Cons( BenchEvent( name, "E", ticks-microseconds() ), bnch-evts )
-  //     resume( () )
-
   val compile-mode = parse-args()
 
+  var prof-state := create-prof-state( "profile.json", True )
+
+  with handler
+    ctl prof-evt( e )
+      prof-state := prof-state.handle-evt( e )
+      resume( () )
+
   match compile-mode
-    Solve( puzzle-path ) -> print-elapsed{ bench( "solve-puzzle", { solve-puzzle( puzzle-path ) } ) }
+    Solve( puzzle-path ) -> print-elapsed{ profile( "solve-puzzle", { solve-puzzle( puzzle-path ) } ) }
     Generate( num-grids-high, num-grids-wide, num-cells-to-fill ) -> print-elapsed{ generate-puzzle( num-grids-high, num-grids-wide, num-cells-to-fill ) }
 
-  // fun bnch-evts-to-string( curr )
-  //   match curr
-  //     Nil -> ""
-  //     Cons( x, xs ) -> 
-  //       match x
-  //         BenchEvent( name, ph, ts ) ->
-  //           bnch-evts-to-string( xs ) ++ ",\n{ \"name\": \"" ++ name ++ "\", \"cat\": \"PERF\", \"ph\": \"" ++ ph ++ "\", \"ts\": " ++ ts.show ++ ", \"pid\": 0, \"tid\": 0 }"
-  
-  // ()
-  // write-text-file( "profile.json".path, "[\n" ++ bnch-evts-to-string( bnch-evts ) )
+  prof-state.close()
