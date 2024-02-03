@@ -21,8 +21,14 @@ static void kk_raylib_EndDrawing(kk_context_t* ctx) {
     EndDrawing();
 }
 
-static void kk_raylib_ClearBackground(kk_context_t* ctx) {
-    ClearBackground(RAYWHITE);
+static void kk_raylib_ClearBackground(kk_raylib_raylib__raylib_Color kk_color, kk_context_t* ctx) {
+    Color color;
+    color.a = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_a(kk_color, ctx), ctx );
+    color.r = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_r(kk_color, ctx), ctx );
+    color.g = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_g(kk_color, ctx), ctx );
+    color.b = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_b(kk_color, ctx), ctx );
+
+    ClearBackground(color);
 }
 
 static void kk_raylib_DrawText(kk_string_t text, kk_integer_t posX, kk_integer_t posY, kk_integer_t fontSize, kk_context_t* ctx) {

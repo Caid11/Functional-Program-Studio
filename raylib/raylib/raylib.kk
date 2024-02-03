@@ -13,6 +13,12 @@ extern import
 extern import
   c file "raylib-inline.c"
 
+pub struct raylib-Color
+  a : int
+  r : int
+  g : int
+  b : int
+
 extern raylib-InitWindow( width : int, height : int, window_name : string ) : ()
   c "kk_raylib_InitWindow"
 
@@ -45,11 +51,11 @@ pub fun endDrawing() : ()
 
 // TODO: Colors are currently hard-coded, because raylib takes uint4 structs. Figure out how to deal with that.
 
-extern raylib-ClearBackground() : ()
+extern raylib-ClearBackground( color : raylib-Color ) : ()
   c "kk_raylib_ClearBackground"
 
-pub fun clearBackground() : ()
-  raylib-ClearBackGround()
+pub fun clearBackground( color : raylib-Color ) : ()
+  raylib-ClearBackGround( color )
 
 extern raylib-DrawText( text : string, posX : int, posY : int, fontSize : int ) : ()
   c "kk_raylib_DrawText"
