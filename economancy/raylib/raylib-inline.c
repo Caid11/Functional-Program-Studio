@@ -1,5 +1,9 @@
 #include <raylib.h>
 
+#define RAYGUI_IMPLEMENTATION
+#include <raygui.h>
+#undef RAYGUI_IMPLEMENTATION
+
 static void kk_raylib_InitWindow(kk_integer_t width, kk_integer_t height, kk_string_t window_name, kk_context_t* ctx) {
     const char* window_name_cstr = kk_string_cbuf_borrow(window_name, NULL, ctx);
     InitWindow(kk_integer_clamp32(width, ctx), kk_integer_clamp32(height, ctx), window_name_cstr);
@@ -38,4 +42,23 @@ static void kk_raylib_DrawText(kk_string_t text, kk_integer_t posX, kk_integer_t
     int fontSize_cint = kk_integer_clamp32(fontSize, ctx);
 
     DrawText(text_cstr, posX_cint, posY_cint, fontSize_cint, LIGHTGRAY);
+}
+
+static void kk_raylib_GuiSetStyle(kk_integer_t kk_rl_control, kk_integer_t kk_property, kk_integer_t kk_value, kk_context_t* ctx) {
+    int control = kk_integer_clamp32(kk_rl_control, ctx);
+    int property = kk_integer_clamp32(kk_property, ctx);
+    int value = kk_integer_clamp32(kk_value, ctx);
+
+    GuiSetStyle(control, property, value);
+}
+static bool kk_raylib_GuiButton(kk_raylib_raylib__raylib_Rectangle kk_bounds, kk_string_t kk_text, kk_context_t* ctx) {
+    Rectangle bounds;
+    bounds.x = kk_raylib_raylib_raylib_Rectangle_fs_x( kk_bounds, ctx );
+    bounds.y = kk_raylib_raylib_raylib_Rectangle_fs_y( kk_bounds, ctx );
+    bounds.width = kk_raylib_raylib_raylib_Rectangle_fs_width( kk_bounds, ctx );
+    bounds.height = kk_raylib_raylib_raylib_Rectangle_fs_height( kk_bounds, ctx );
+
+    const char* text = kk_string_cbuf_borrow(kk_text, NULL, ctx);
+
+    return GuiButton(bounds, text);
 }
