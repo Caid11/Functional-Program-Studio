@@ -34,6 +34,8 @@ pub struct raylib-Color
   b : int
   a : int
 
+pub val raywhite = Raylib-Color( 245, 245, 245, 255 )
+
 pub struct raylib-Rectangle
   x : float32
   y : float32
