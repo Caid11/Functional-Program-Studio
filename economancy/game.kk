@@ -1,10 +1,20 @@
 pub type phase
   Income
 
+pub fun phase/str( p : phase )
+  match p
+    Income -> "INCOME"
+
 pub type day
   One
   Two
   Three
+
+pub fun day/str( d : day )
+  match d
+    One -> "ONE"
+    Two -> "TWO"
+    Three -> "THREE"
 
 pub type cardType
   SorcerersStipend

@@ -27,6 +27,14 @@ pub fun init-gui() : raylib-io guiState
 
   GuiState( MainMenu, card )
 
+fun draw-phase( game-phase : phase ) : raylib-io ()
+  drawText( game-phase.str, 25, 25, 44 )
+
+fun draw-day( game-day : day ) : raylib-io ()
+  val day-text = "DAY " ++ game-day.str
+  val text-width = raylib-MeasureText( day-text, 44 )
+  drawText( day-text, windowWidth - text-width - 25, 25, 44 )
+
 fun start-view() : raylib-io maybe<guiCommand>
   val buttonWidth : float64 = windowWidth.float64 / 4.0
   val buttonHeight : float64 = windowHeight.float64 / 4.0
@@ -38,8 +46,9 @@ fun start-view() : raylib-io maybe<guiCommand>
   if start-clicked then Just( Start )
   else Nothing
 
-fun income-view( gui-state : guiState ) : raylib-io maybe<guiCommand>
-  drawText("INCOME", 100, 100, 100 )
+fun income-view( gui-state : guiState, game-state : gameState ) : raylib-io maybe<guiCommand>
+  draw-phase( game-state.phase )
+  draw-day( game-state.day )
   drawTexture( gui-state.card, 100, 300, white )
   Nothing
 
@@ -55,7 +64,7 @@ pub fun update( gui-state : guiState, game-state : gameState ) : raylib-io guiUp
 
     val gui-cmd = match gui-state.mode
       gui/MainMenu -> start-view()
-      gui/Playing -> income-view( gui-state )
+      gui/Playing -> income-view( gui-state, game-state )
 
     endDrawing()
 

@@ -40,6 +40,7 @@ static void kk_raylib_ClearBackground(kk_raylib_raylib__raylib_Color kk_color, k
     ClearBackground(color);
 }
 
+// TODO: Plumb through text color
 static void kk_raylib_DrawText(kk_string_t text, kk_integer_t posX, kk_integer_t posY, kk_integer_t fontSize, kk_context_t* ctx) {
     const char* text_cstr = kk_string_cbuf_borrow(text, NULL, ctx);
     int posX_cint = kk_integer_clamp32(posX, ctx);
@@ -47,6 +48,15 @@ static void kk_raylib_DrawText(kk_string_t text, kk_integer_t posX, kk_integer_t
     int fontSize_cint = kk_integer_clamp32(fontSize, ctx);
 
     DrawText(text_cstr, posX_cint, posY_cint, fontSize_cint, LIGHTGRAY);
+}
+
+static kk_integer_t kk_raylib_MeasureText(kk_string_t text, kk_integer_t fontSize, kk_context_t* ctx) {
+    const char* text_cstr = kk_string_cbuf_borrow(text, NULL, ctx);
+    int fontSize_cint = kk_integer_clamp32(fontSize, ctx);
+
+    int res = MeasureText(text_cstr, fontSize_cint);
+    kk_integer_t kk_res = kk_integer_from_int32(res, ctx);
+    return kk_res;
 }
 
 static kk_raylib_raylib__raylib_Texture kk_raylib_LoadTexture(kk_string_t kk_fileName, kk_context_t* ctx) {

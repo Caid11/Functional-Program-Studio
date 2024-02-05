@@ -111,6 +111,12 @@ extern raylib-DrawText( text : string, posX : int, posY : int, fontSize : int ) 
 pub fun drawText( text : string, posX : int, posY : int, fontSize : int ) : raylib-io ()
   raylib-DrawText( text, posX, posY, fontSize )
 
+extern raylib-measureText( text : string, fontSize : int ) : raylib-io int
+  c "kk_raylib_MeasureText"
+
+pub fun measureText( text : string, fontSize : int ) : raylib-io int
+  raylib-measureText( text, fontSize )
+
 extern raylib-LoadTexture( fileName : string ) : raylib-io raylib-Texture2D
   c "kk_raylib_LoadTexture"
 
