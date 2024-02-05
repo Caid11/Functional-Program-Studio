@@ -35,12 +35,22 @@ pub struct raylib-Color
   a : int
 
 pub val raywhite = Raylib-Color( 245, 245, 245, 255 )
+pub val white = Raylib-Color( 255, 255, 255, 255 )
 
 pub struct raylib-Rectangle
   x : float32
   y : float32
   width : float32
   height : float32
+
+pub struct raylib-Texture
+  id : int
+  width : int
+  height : int
+  mipmaps : int
+  format : int
+
+pub alias raylib-Texture2D = raylib-Texture
 
 // TODO: Maybe make a global struct with int fields for more type safety?
 
@@ -60,6 +70,8 @@ extern raylib-InitWindow( width : int, height : int, window_name : string ) : ra
 
 pub fun initWindow( width : int, height : int, window_name : string ) : raylib-io ()
   raylib-InitWindow( width, height, window_name )
+
+// TODO: closeWindow
 
 extern raylib-SetTargetFPS( fps : int ) : raylib-io ()
   c "kk_raylib_SetTargetFPS"
@@ -98,6 +110,21 @@ extern raylib-DrawText( text : string, posX : int, posY : int, fontSize : int ) 
 
 pub fun drawText( text : string, posX : int, posY : int, fontSize : int ) : raylib-io ()
   raylib-DrawText( text, posX, posY, fontSize )
+
+extern raylib-LoadTexture( fileName : string ) : raylib-io raylib-Texture2D
+  c "kk_raylib_LoadTexture"
+
+pub fun loadTexture( fileName : string ) : raylib-io raylib-Texture2D
+  raylib-LoadTexture( fileName )
+
+// TODO: unloadTexture
+
+extern raylib-DrawTexture( texture : raylib-Texture2D, posX : int, posY : int, tint : raylib-Color ) : raylib-io ()
+  c "kk_raylib_DrawTexture"
+
+pub fun drawTexture( texture : raylib-Texture2D, posX : int, posY : int, tint : raylib-Color ) : raylib-io ()
+  raylib-DrawTexture( texture, posX, posY, tint )
+
 
 //================================================================================
 // Raygui functions

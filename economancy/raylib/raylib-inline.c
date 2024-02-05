@@ -25,13 +25,18 @@ static void kk_raylib_EndDrawing(kk_context_t* ctx) {
     EndDrawing();
 }
 
-static void kk_raylib_ClearBackground(kk_raylib_raylib__raylib_Color kk_color, kk_context_t* ctx) {
+static Color kk_raylib_Color_from_kk(kk_raylib_raylib__raylib_Color kk_color, kk_context_t* ctx) {
     Color color;
     color.a = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_a(kk_color, ctx), ctx );
     color.r = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_r(kk_color, ctx), ctx );
     color.g = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_g(kk_color, ctx), ctx );
     color.b = kk_integer_clamp_byte( kk_raylib_raylib_raylib_Color_fs_b(kk_color, ctx), ctx );
 
+    return color;
+}
+
+static void kk_raylib_ClearBackground(kk_raylib_raylib__raylib_Color kk_color, kk_context_t* ctx) {
+    Color color = kk_raylib_Color_from_kk(kk_color, ctx);
     ClearBackground(color);
 }
 
@@ -42,6 +47,40 @@ static void kk_raylib_DrawText(kk_string_t text, kk_integer_t posX, kk_integer_t
     int fontSize_cint = kk_integer_clamp32(fontSize, ctx);
 
     DrawText(text_cstr, posX_cint, posY_cint, fontSize_cint, LIGHTGRAY);
+}
+
+static kk_raylib_raylib__raylib_Texture kk_raylib_LoadTexture(kk_string_t kk_fileName, kk_context_t* ctx) {
+    const char* fileName = kk_string_cbuf_borrow(kk_fileName, NULL, ctx);
+
+    Texture2D res = LoadTexture(fileName);
+
+    kk_integer_t kk_id = kk_integer_from_uint32(res.id, ctx);
+    kk_integer_t kk_width = kk_integer_from_int32(res.width, ctx);
+    kk_integer_t kk_height = kk_integer_from_int32(res.height, ctx);
+    kk_integer_t kk_mipmaps = kk_integer_from_int32(res.mipmaps, ctx);
+    kk_integer_t kk_format = kk_integer_from_int32(res.format, ctx);
+
+    return kk_raylib_raylib__new_Raylib_Texture(kk_reuse_null, 0, kk_id, kk_width, kk_height, kk_mipmaps, kk_format, ctx);
+}
+
+static void kk_raylib_DrawTexture(kk_raylib_raylib__raylib_Texture kk_texture,
+                                  kk_integer_t kk_posX,
+                                  kk_integer_t kk_posY, 
+                                  kk_raylib_raylib__raylib_Color kk_color, 
+                                  kk_context_t* ctx) {
+    Texture2D texture;
+    texture.id = kk_integer_clamp32(kk_raylib_raylib_raylib_Texture_fs_id(kk_texture, ctx), ctx);
+    texture.width = kk_integer_clamp32(kk_raylib_raylib_raylib_Texture_fs_width(kk_texture, ctx), ctx);
+    texture.height = kk_integer_clamp32(kk_raylib_raylib_raylib_Texture_fs_height(kk_texture, ctx), ctx);
+    texture.mipmaps = kk_integer_clamp32(kk_raylib_raylib_raylib_Texture_fs_mipmaps(kk_texture, ctx), ctx);
+    texture.format = kk_integer_clamp32(kk_raylib_raylib_raylib_Texture_fs_format(kk_texture, ctx), ctx);
+
+    int posX = kk_integer_clamp32(kk_posX, ctx);
+    int posY = kk_integer_clamp32(kk_posY, ctx);
+
+    Color tint = kk_raylib_Color_from_kk(kk_color, ctx);
+
+    DrawTexture(texture, posX, posY, tint);
 }
 
 static void kk_raylib_GuiSetStyle(kk_integer_t kk_rl_control, kk_integer_t kk_property, kk_integer_t kk_value, kk_context_t* ctx) {

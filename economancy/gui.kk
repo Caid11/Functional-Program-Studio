@@ -12,18 +12,20 @@ pub type guiMode
   MainMenu
   Playing
 
-val windowWidth = 1024
-val windowHeight = 768
+val windowWidth = 1920
+val windowHeight = 1080
 
 pub struct guiState
   mode : guiMode
+  card : raylib-Texture2D
   
 pub fun init-gui() : raylib-io guiState
   initWindow( windowWidth, windowHeight, "Economancy")
   guiSetStyle( guiControlDefault, guiControlPropertyTextSize, 16 * 4 )
   setTargetFPS( 60 )
+  val card = loadTexture( "assets/sorcerers_stipend.png" )
 
-  GuiState( MainMenu )
+  GuiState( MainMenu, card )
 
 fun start-view() : raylib-io maybe<guiCommand>
   val buttonWidth : float64 = windowWidth.float64 / 4.0
@@ -36,8 +38,9 @@ fun start-view() : raylib-io maybe<guiCommand>
   if start-clicked then Just( Start )
   else Nothing
 
-fun income-view() : raylib-io maybe<guiCommand>
+fun income-view( gui-state : guiState ) : raylib-io maybe<guiCommand>
   drawText("INCOME", 100, 100, 100 )
+  drawTexture( gui-state.card, 100, 300, white )
   Nothing
 
 pub struct guiUpdateResult
@@ -52,10 +55,10 @@ pub fun update( gui-state : guiState, game-state : gameState ) : raylib-io guiUp
 
     val gui-cmd = match gui-state.mode
       gui/MainMenu -> start-view()
-      gui/Playing -> income-view()
+      gui/Playing -> income-view( gui-state )
 
     endDrawing()
 
     match gui-cmd
-      Just( Start ) -> GuiUpdateResult( GuiState( Playing ), Nothing )
+      Just( Start ) -> GuiUpdateResult( GuiState( Playing, gui-state.card ), Nothing )
       _ -> GuiUpdateResult( gui-state, gui-cmd )
