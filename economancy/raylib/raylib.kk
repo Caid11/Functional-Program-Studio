@@ -43,6 +43,10 @@ pub struct raylib-Rectangle
   width : float32
   height : float32
 
+pub struct raylib-Vector2
+  x : float32
+  y : float32
+
 pub struct raylib-Texture
   id : int
   width : int
@@ -131,6 +135,11 @@ extern raylib-DrawTexture( texture : raylib-Texture2D, posX : int, posY : int, t
 pub fun drawTexture( texture : raylib-Texture2D, posX : int, posY : int, tint : raylib-Color ) : raylib-io ()
   raylib-DrawTexture( texture, posX, posY, tint )
 
+extern raylib-DrawTextureEx( texture : raylib-Texture2D, position : raylib-Vector2, rotation : float32, scale : float32, tint : raylib-Color ) : raylib-io ()
+  c "kk_raylib_DrawTextureEx"
+
+pub fun drawTextureEx( texture : raylib-Texture2D, position : raylib-Vector2, rotation : float32, scale : float32, tint : raylib-Color ) : raylib-io ()
+  raylib-DrawTextureEx( texture, position, rotation, scale, tint )
 
 //================================================================================
 // Raygui functions

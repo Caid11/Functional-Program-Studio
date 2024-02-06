@@ -28,12 +28,48 @@ pub fun init-gui() : raylib-io guiState
   GuiState( MainMenu, card )
 
 fun draw-phase( game-phase : phase ) : raylib-io ()
-  drawText( game-phase.str, 25, 25, 44 )
+  val phase-text-width = raylib-MeasureText( game-phase.str, 44 )
+  val phase-x = windowWidth - phase-text-width - 25
+  drawText( game-phase.str, phase-x, 25, 44 )
 
 fun draw-day( game-day : day ) : raylib-io ()
   val day-text = "DAY " ++ game-day.str
-  val text-width = raylib-MeasureText( day-text, 44 )
-  drawText( day-text, windowWidth - text-width - 25, 25, 44 )
+  drawText( day-text, 25, 25, 44 )
+
+fun center( container-width : int, object-width : int ) : int
+  container-width / 2 - object-width / 2
+
+fun get-player-coords( player-idx : int, container-width : int, container-height )
+  val center-horizontal = center(windowWidth, container-width)
+  val center-vertical = center(windowHeight, container-height)
+
+  match player-idx
+    0 -> (center-horizontal, windowHeight - container-height)
+    1 -> (windowWidth - container-width, center-vertical)
+    2 -> (center-horizontal, 0)
+    3 -> (0, center-vertical)
+
+fun draw-player( gui-state : guiState, player-idx : int, player : player )
+  val container-width = windowWidth / 5
+  val container-height = windowHeight / 4
+  val (container-x, container-y) = get-player-coords( player-idx, container-width, container-height )
+
+  // Name
+  val name-font-size = 36
+  val name-x = center(container-width, raylib-MeasureText( player.name, name-font-size ))
+  raylib-DrawText( player.name, container-x + name-x, container-y, name-font-size )
+
+  // Cards
+  val card-width = container-width / 4
+  val card-scale = float32(card-width.float64 / gui-state.card.width.float64)
+  val card-height = int(gui-state.card.height.float64 * card-scale.float64)
+
+  // TODO: Hard-coded to 1 card
+  val cardPos = Raylib-Vector2(container-x.float32, float32(name-font-size + container-y))
+  drawTextureEx(gui-state.card, cardPos, float32(0.0), card-scale, white)
+
+  // Coins
+  raylib-DrawText( "Coins: " ++ player.coins.show, container-x, container-y + name-font-size + card-height, name-font-size )
 
 fun start-view() : raylib-io maybe<guiCommand>
   val buttonWidth : float64 = windowWidth.float64 / 4.0
@@ -49,7 +85,11 @@ fun start-view() : raylib-io maybe<guiCommand>
 fun income-view( gui-state : guiState, game-state : gameState ) : raylib-io maybe<guiCommand>
   draw-phase( game-state.phase )
   draw-day( game-state.day )
-  drawTexture( gui-state.card, 100, 300, white )
+
+  val player-idxs = list(0, game-state.players.length - 1 )
+
+  val draw-with-state = fn((idx, player)){ draw-player(gui-state, idx, player) }
+  map( zip( player-idxs, game-state.players ), draw-with-state )
   Nothing
 
 pub struct guiUpdateResult

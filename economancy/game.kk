@@ -39,7 +39,7 @@ pub struct gameState
 pub fun get-init-state()
   val alice = Player( "Alice", 0, [] )
   val bob = Player( "Bob", 0, [] )
-  val charlie = Player( "Charle", 0, [] )
+  val charlie = Player( "Charlie", 0, [] )
   val diane = Player( "Diane", 0, [] )
   val players = [alice, bob, charlie, diane]
 
