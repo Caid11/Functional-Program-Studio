@@ -1,19 +1,25 @@
 import game
 import gui
 
-fun game-loop( prev-gui-state : guiState, game-state : gameState )
-  val update-res : guiUpdateResult = prev-gui-state.update( game-state )
-  val new-gui-state : guiState = update-res.gui-state
+fun game-loop( gui-state : guiState, game-state : gameState )
+  match game-state.phase
+    Income ->
+      val (new-game-state, player-incomes) = game-state.resolve-income()
+      gui-state.show-income-results( new-game-state, player-incomes )
+      game-loop( gui-state, new-game-state )
+    Invest ->
+      gui-state.show-invest( game-state )
+      game-loop( gui-state, game-state )
 
-  match update-res.gui-cmd
-    Nothing -> game-loop( new-gui-state, game-state )
-    Just( Start ) -> 
-      println("Game started!")
-      game-loop( update-res.gui-state, game-state )
-    Just( Quit ) -> ()
 
 fun main()
   val gui-state = init-gui()
-  val game-state = get-init-state()
+
+  // TODO: Call WindowClose
+  with handler
+    ctl exit() { println("All done!") }
+
+  val player-info = gui-state.get-player-info()
+  val game-state = get-init-state( player-info )
 
   game-loop( gui-state, game-state )
