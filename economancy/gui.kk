@@ -105,8 +105,7 @@ fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, 
   drawTextureEx(gui-state.card, cardPos, float32(0.0), card-scale, white)
 
   // Coins
-  val prev-coins = player.coins - income
-  val coin-text = "Coins: " ++ prev-coins.show ++ " (+" ++ income.show ++ ")"
+  val coin-text = "Coins: " ++ player.coins.show ++ " (+" ++ income.show ++ ")"
   drawText( coin-text, container-x + center(container-width, measureText(coin-text, name-font-size)), container-y + name-font-size + card-height, name-font-size, darkgray )
 
 // TODO: This (and the function it calls) is VERY similar to draw-players. Figure out how to combine them.

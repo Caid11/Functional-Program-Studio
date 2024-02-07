@@ -5,7 +5,7 @@ fun game-loop( gui-state : guiState, game-state : gameState )
   match game-state.phase
     Income ->
       val (new-game-state, player-incomes) = game-state.resolve-income()
-      gui-state.show-income-results( new-game-state, player-incomes )
+      gui-state.show-income-results( game-state, player-incomes )
       game-loop( gui-state, new-game-state )
     Invest ->
       gui-state.show-invest( game-state )
