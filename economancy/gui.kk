@@ -17,7 +17,7 @@ val windowHeight = 1080
 
 pub struct guiState
   mode : guiMode
-  card : raylib-Texture2D
+  card : texture2D
   
 pub fun init-gui() : raylib-io guiState
   initWindow( windowWidth, windowHeight, "Economancy")
@@ -30,11 +30,11 @@ pub fun init-gui() : raylib-io guiState
 fun draw-phase( game-phase : phase ) : raylib-io ()
   val phase-text-width = raylib-MeasureText( game-phase.str, 44 )
   val phase-x = windowWidth - phase-text-width - 25
-  drawText( game-phase.str, phase-x, 25, 44 )
+  drawText( game-phase.str, phase-x, 25, 44, darkgray )
 
 fun draw-day( game-day : day ) : raylib-io ()
   val day-text = "DAY " ++ game-day.str
-  drawText( day-text, 25, 25, 44 )
+  drawText( day-text, 25, 25, 44, darkgray )
 
 fun center( container-width : int, object-width : int ) : int
   container-width / 2 - object-width / 2
@@ -62,8 +62,8 @@ fun draw-player( gui-state : guiState, loc : playerLoc, player : player )
 
   // Name
   val name-font-size = 36
-  val name-x = center(container-width, raylib-MeasureText( player.name, name-font-size ))
-  raylib-DrawText( player.name, container-x + name-x, container-y, name-font-size )
+  val name-x = center(container-width, measureText( player.name, name-font-size ))
+  drawText( player.name, container-x + name-x, container-y, name-font-size, darkgray )
 
   // Cards
   val card-width = container-width / 3
@@ -71,11 +71,11 @@ fun draw-player( gui-state : guiState, loc : playerLoc, player : player )
   val card-height = int(gui-state.card.height.float64 * card-scale.float64)
 
   // TODO: Hard-coded to 1 card
-  val cardPos = Raylib-Vector2(container-x.float32, float32(name-font-size + container-y))
+  val cardPos = Vector2(container-x.float32, float32(name-font-size + container-y))
   drawTextureEx(gui-state.card, cardPos, float32(0.0), card-scale, white)
 
   // Coins
-  raylib-DrawText( "Coins: " ++ player.coins.show, container-x, container-y + name-font-size + card-height, name-font-size )
+  drawText( "Coins: " ++ player.coins.show, container-x, container-y + name-font-size + card-height, name-font-size, darkgray )
 
 fun draw-players( gui-state : guiState, players : list<player> )
   val player-locs = [Bottom, Top, Left, Right]
@@ -92,7 +92,7 @@ pub fun get-player-info( gui-state : guiState ) : <raylib-io, guiExit> list<play
   val buttonHeight : float64 = windowHeight.float64 / 4.0
   val buttonXPos : float64 = windowWidth.float64 / 2.0 - buttonWidth / 2.0
   val buttonYPos : float64 = windowHeight.float64 / 2.0 - buttonHeight / 2.0
-  val buttonRect = Raylib-Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
+  val buttonRect = Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
 
   fun get-player-info-r()
     if windowShouldClose() then exit()
@@ -118,7 +118,7 @@ pub fun show-income-results( gui-state : guiState, game-state : gameState, playe
   val buttonHeight : float64 = windowHeight.float64 / 4.0
   val buttonXPos : float64 = windowWidth.float64 / 2.0 - buttonWidth / 2.0
   val buttonYPos : float64 = windowHeight.float64 / 2.0 - buttonHeight / 2.0
-  val buttonRect = Raylib-Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
+  val buttonRect = Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
 
   fun get-player-info-r()
     if windowShouldClose() then exit()
@@ -147,7 +147,7 @@ pub fun show-invest( gui-state : guiState, game-state : gameState ) : <raylib-io
   val buttonHeight : float64 = windowHeight.float64 / 4.0
   val buttonXPos : float64 = windowWidth.float64 / 2.0 - buttonWidth / 2.0
   val buttonYPos : float64 = windowHeight.float64 / 2.0 - buttonHeight / 2.0
-  val buttonRect = Raylib-Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
+  val buttonRect = Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
 
   fun get-player-info-r()
     if windowShouldClose() then exit()

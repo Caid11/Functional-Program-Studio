@@ -28,33 +28,57 @@ alias raylib-io = io
 //================================================================================
 // Koka Wrappers for Raylib structs
 
-pub struct raylib-Color
+pub struct color
   r : int
   g : int
   b : int
   a : int
 
-pub val raywhite = Raylib-Color( 245, 245, 245, 255 )
-pub val white = Raylib-Color( 255, 255, 255, 255 )
+pub val lightgray = Color(200, 200, 200, 255)
+pub val gray = Color(130, 130, 130, 255)
+pub val darkgray = Color(80, 80, 80, 255)
+pub val yellow = Color(253, 249, 0, 255)
+pub val gold = Color(255, 203, 0, 255)
+pub val orange = Color(255, 161, 0, 255)
+pub val pink = Color(255, 109, 194, 255)
+pub val red = Color(230, 41, 55, 255)
+pub val maroon = Color(190, 33, 55, 255)
+pub val green = Color(0, 228, 48, 255)
+pub val lime = Color(0, 158, 47, 255)
+pub val darkgreen = Color(0, 117, 44, 255)
+pub val skyblue = Color(102, 191, 255, 255)
+pub val blue = Color(0, 121, 241, 255)
+pub val darkblue = Color(0, 82, 172, 255)
+pub val purple = Color(200, 122, 255, 255)
+pub val violet = Color(135, 60, 190, 255)
+pub val darkpurple = Color(112, 31, 126, 255)
+pub val beige = Color(211, 176, 131, 255)
+pub val brown = Color(127, 106, 79, 255)
+pub val darkbrown = Color(76, 63, 47, 255)
+pub val white = Color(255, 255, 255, 255)
+pub val black = Color(0, 0, 0, 255)
+pub val blank = Color(0, 0, 0, 0)
+pub val magenta = Color(255, 0, 255, 255)
+pub val raywhite = Color(245, 245, 245, 255)
 
-pub struct raylib-Rectangle
+pub struct rectangle
   x : float32
   y : float32
   width : float32
   height : float32
 
-pub struct raylib-Vector2
+pub struct vector2
   x : float32
   y : float32
 
-pub struct raylib-Texture
+pub struct texture
   id : int
   width : int
   height : int
   mipmaps : int
   format : int
 
-pub alias raylib-Texture2D = raylib-Texture
+pub alias texture2D = texture
 
 // TODO: Maybe make a global struct with int fields for more type safety?
 
@@ -103,17 +127,17 @@ pub fun endDrawing() : raylib-io ()
 
 // TODO: Colors are currently hard-coded, because raylib takes uint4 structs. Figure out how to deal with that.
 
-extern raylib-ClearBackground( color : raylib-Color ) : raylib-io ()
+extern raylib-ClearBackground( color : color ) : raylib-io ()
   c "kk_raylib_ClearBackground"
 
-pub fun clearBackground( color : raylib-Color ) : raylib-io ()
+pub fun clearBackground( color : color ) : raylib-io ()
   raylib-ClearBackGround( color )
 
-extern raylib-DrawText( text : string, posX : int, posY : int, fontSize : int ) : raylib-io ()
+extern raylib-DrawText( text : string, posX : int, posY : int, fontSize : int, color : color ) : raylib-io ()
   c "kk_raylib_DrawText"
 
-pub fun drawText( text : string, posX : int, posY : int, fontSize : int ) : raylib-io ()
-  raylib-DrawText( text, posX, posY, fontSize )
+pub fun drawText( text : string, posX : int, posY : int, fontSize : int, color : color ) : raylib-io ()
+  raylib-DrawText( text, posX, posY, fontSize, color )
 
 extern raylib-measureText( text : string, fontSize : int ) : raylib-io int
   c "kk_raylib_MeasureText"
@@ -121,24 +145,24 @@ extern raylib-measureText( text : string, fontSize : int ) : raylib-io int
 pub fun measureText( text : string, fontSize : int ) : raylib-io int
   raylib-measureText( text, fontSize )
 
-extern raylib-LoadTexture( fileName : string ) : raylib-io raylib-Texture2D
+extern raylib-LoadTexture( fileName : string ) : raylib-io texture2D
   c "kk_raylib_LoadTexture"
 
-pub fun loadTexture( fileName : string ) : raylib-io raylib-Texture2D
+pub fun loadTexture( fileName : string ) : raylib-io texture2D
   raylib-LoadTexture( fileName )
 
 // TODO: unloadTexture
 
-extern raylib-DrawTexture( texture : raylib-Texture2D, posX : int, posY : int, tint : raylib-Color ) : raylib-io ()
+extern raylib-DrawTexture( texture : texture2D, posX : int, posY : int, tint : color ) : raylib-io ()
   c "kk_raylib_DrawTexture"
 
-pub fun drawTexture( texture : raylib-Texture2D, posX : int, posY : int, tint : raylib-Color ) : raylib-io ()
+pub fun drawTexture( texture : texture2D, posX : int, posY : int, tint : color ) : raylib-io ()
   raylib-DrawTexture( texture, posX, posY, tint )
 
-extern raylib-DrawTextureEx( texture : raylib-Texture2D, position : raylib-Vector2, rotation : float32, scale : float32, tint : raylib-Color ) : raylib-io ()
+extern raylib-DrawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
   c "kk_raylib_DrawTextureEx"
 
-pub fun drawTextureEx( texture : raylib-Texture2D, position : raylib-Vector2, rotation : float32, scale : float32, tint : raylib-Color ) : raylib-io ()
+pub fun drawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
   raylib-DrawTextureEx( texture, position, rotation, scale, tint )
 
 //================================================================================
@@ -150,8 +174,8 @@ extern raylib-GuiSetStyle( rl_control : int, property : int, value : int ) : ray
 pub fun guiSetStyle( rl_control : int, property : int, value : int ) : raylib-io ()
   raylib-GuiSetStyle( rl_control, property, value )
 
-extern raylib-GuiButton( bounds : raylib-Rectangle, text : string ) : raylib-io bool
+extern raylib-GuiButton( bounds : rectangle, text : string ) : raylib-io bool
   c "kk_raylib_GuiButton"
 
-pub fun guiButton( bounds : raylib-Rectangle, text : string ) : raylib-io bool
+pub fun guiButton( bounds : rectangle, text : string ) : raylib-io bool
   raylib-GuiButton( bounds, text )
