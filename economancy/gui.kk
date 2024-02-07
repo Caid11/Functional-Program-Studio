@@ -71,16 +71,49 @@ fun draw-player( gui-state : guiState, loc : playerLoc, player : player )
   val card-height = int(gui-state.card.height.float64 * card-scale.float64)
 
   // TODO: Hard-coded to 1 card
-  val cardPos = Vector2(container-x.float32, float32(name-font-size + container-y))
+  val cardX = float32(container-x + center(container-width, card-width))
+  val cardPos = Vector2(cardX, float32(name-font-size + container-y))
   drawTextureEx(gui-state.card, cardPos, float32(0.0), card-scale, white)
 
   // Coins
-  drawText( "Coins: " ++ player.coins.show, container-x, container-y + name-font-size + card-height, name-font-size, darkgray )
+  val coin-text = "Coins: " ++ player.coins.show
+  drawText( coin-text, container-x + center(container-width, measureText(coin-text, name-font-size)), container-y + name-font-size + card-height, name-font-size, darkgray )
 
 fun draw-players( gui-state : guiState, players : list<player> )
   val player-locs = [Bottom, Top, Left, Right]
   val players-and-locs = zip( players, player-locs )
   players-and-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p )})
+
+fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, income : int )
+  val container-width = windowWidth / 5
+  val container-height = windowHeight / 4
+  val (container-x, container-y) = get-player-coords( loc, container-width, container-height )
+
+  // Name
+  val name-font-size = 36
+  val name-x = center(container-width, measureText( player.name, name-font-size ))
+  drawText( player.name, container-x + name-x, container-y, name-font-size, darkgray )
+
+  // Cards
+  val card-width = container-width / 3
+  val card-scale = float32(card-width.float64 / gui-state.card.width.float64)
+  val card-height = int(gui-state.card.height.float64 * card-scale.float64)
+
+  // TODO: Hard-coded to 1 card
+  val cardX = float32(container-x + center(container-width, card-width))
+  val cardPos = Vector2(cardX, float32(name-font-size + container-y))
+  drawTextureEx(gui-state.card, cardPos, float32(0.0), card-scale, white)
+
+  // Coins
+  val prev-coins = player.coins - income
+  val coin-text = "Coins: " ++ prev-coins.show ++ " (+" ++ income.show ++ ")"
+  drawText( coin-text, container-x + center(container-width, measureText(coin-text, name-font-size)), container-y + name-font-size + card-height, name-font-size, darkgray )
+
+// TODO: This (and the function it calls) is VERY similar to draw-players. Figure out how to combine them.
+fun draw-players-incomes( gui-state : guiState, players : list<player>, incomes : list<int> )
+  val player-locs = [Bottom, Top, Left, Right]
+  val players-locs-incomes = zip( zip(players, player-locs), incomes )
+  players-locs-incomes.map( fn( ((p,l),i) ){ draw-player-income( gui-state, l, p, i )})
 
 effect guiExit
   ctl exit() : a
@@ -114,13 +147,13 @@ pub fun get-player-info( gui-state : guiState ) : <raylib-io, guiExit> list<play
 pub fun show-income-results( gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> ()
     // When drawing coins, draw previous income and draw new income in green
 
-  val buttonWidth : float64 = windowWidth.float64 / 4.0
-  val buttonHeight : float64 = windowHeight.float64 / 4.0
-  val buttonXPos : float64 = windowWidth.float64 / 2.0 - buttonWidth / 2.0
-  val buttonYPos : float64 = windowHeight.float64 / 2.0 - buttonHeight / 2.0
+  val buttonWidth : float64 = 300.0
+  val buttonHeight : float64 = 150.0
+  val buttonXPos : float64 = windowWidth.float64 - buttonWidth - 25.0
+  val buttonYPos : float64 = windowHeight.float64 - buttonHeight - 25.0
   val buttonRect = Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
 
-  fun get-player-info-r()
+  fun show-income-results-r()
     if windowShouldClose() then exit()
     else
       clearBackground( raywhite )
@@ -131,16 +164,16 @@ pub fun show-income-results( gui-state : guiState, game-state : gameState, playe
       draw-day( game-state.day )
     
       // Draw every player's info
-      gui-state.draw-players( game-state.players )
+      gui-state.draw-players-incomes( game-state.players, player-incomes )
       
-      val start-clicked = guiButton( buttonRect, "Income" )
+      val next-clicked = guiButton( buttonRect, "Next" )
 
       endDrawing()
 
-      if start-clicked then ()
-      else get-player-info-r()
+      if next-clicked then ()
+      else show-income-results-r()
 
-  get-player-info-r()
+  show-income-results-r()
       
 pub fun show-invest( gui-state : guiState, game-state : gameState ) : <raylib-io, guiExit> ()
   val buttonWidth : float64 = windowWidth.float64 / 4.0
