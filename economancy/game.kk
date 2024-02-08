@@ -22,6 +22,15 @@ pub type cardType
   SorcerersStipend
   Worker
 
+pub fun cardType/cmp( x : cardType, y : cardType )
+  match x
+    SorcerersStipend -> match y
+      SorcerersStipend -> True
+      _ -> False
+    Worker -> match y
+      Worker -> True
+      _ -> False
+
 pub struct stock
   card : cardType
   remaining : int
@@ -42,7 +51,7 @@ pub struct playerInitInfo
 
 pub fun get-init-state( player-inits : list<playerInitInfo> )
   fun init-player( p : playerInitInfo )
-    Player(p.name, 0, [SorcerersStipend])
+    Player(p.name, 0, [SorcerersStipend, Worker])
 
   val players = player-inits.map( init-player )
 
@@ -57,6 +66,11 @@ fun get-card-income( card : cardType, d : day )
       match d
         One -> 2
         _ -> 1
+    Worker ->
+      match d
+        Two -> 1
+        Three -> 1
+        _ -> 0
 
 fun get-player-income( state : gameState, p : player )
   val incomes = p.cards.map( fn(c){ get-card-income( c, state.day )})
