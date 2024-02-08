@@ -122,6 +122,17 @@ static void kk_raylib_DrawTextureEx(kk_raylib_raylib__texture kk_texture,
     DrawTextureEx(texture, position, rotation, scale, tint);
 }
 
+static bool kk_raylib_IsMouseButtonPressed(kk_integer_t kk_button, kk_context_t *ctx)
+{
+    int button = kk_integer_clamp32(kk_button, ctx);
+    return IsMouseButtonPressed(button);
+}
+
+static kk_raylib_raylib__vector2 kk_raylib_GetMousePosition(kk_context_t* ctx) {
+    Vector2 mousePos = GetMousePosition();
+    return kk_raylib_raylib__new_Vector2(kk_reuse_null, 0, mousePos.x, mousePos.y, ctx);
+}
+
 static void kk_raylib_GuiSetStyle(kk_integer_t kk_rl_control, kk_integer_t kk_property, kk_integer_t kk_value, kk_context_t* ctx) {
     int control = kk_integer_clamp32(kk_rl_control, ctx);
     int property = kk_integer_clamp32(kk_property, ctx);

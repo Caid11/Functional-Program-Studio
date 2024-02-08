@@ -107,7 +107,11 @@ fun draw-players( gui-state : guiState, players : list<player> )
   val players-and-locs = zip( players, player-locs )
   players-and-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p )})
 
-fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, income : int )
+struct playerStackInfo
+  name : string
+  bounds : rectangle
+
+fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, income : int ) : <raylib-io> playerStackInfo
   val container-width = windowWidth / 5
   val container-height = windowHeight / 4
   val (container-x, container-y) = get-player-coords( loc, container-width, container-height )
@@ -126,7 +130,6 @@ fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, 
   val card-scale-factor = float32(card-tgt-width / card-width)
   val card-tgt-height = int(card-height * card-scale-factor.float64)
 
-  // TODO: Hard-coded to 1 card
   val (stack-offsets, stack-width) = get-card-stack-offsets( card-tgt-width.int, 0.3, player.cards.length )
 
   val stack-center-offset = center( container-width, stack-width )
@@ -146,11 +149,14 @@ fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, 
   val coin-text = "Coins: " ++ player.coins.show ++ " (+" ++ income.show ++ ")"
   drawText( coin-text, container-x + center(container-width, measureText(coin-text, name-font-size)), container-y + name-font-size + card-tgt-height, name-font-size, darkgray )
 
+  PlayerStackInfo( player.name, Rectangle( float32( container-x + stack-center-offset), card-y, stack-width.float32, card-tgt-height.float32 ) )
+
 // TODO: This (and the function it calls) is VERY similar to draw-players. Figure out how to combine them.
-fun draw-players-incomes( gui-state : guiState, players : list<player>, incomes : list<int> )
+fun draw-players-incomes( gui-state : guiState, players : list<player>, incomes : list<int> ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
   val players-locs-incomes = zip( zip(players, player-locs), incomes )
-  players-locs-incomes.map( fn( ((p,l),i) ){ draw-player-income( gui-state, l, p, i )})
+  val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player-income( gui-state, l, p, i )})
+  player-stacks
 
 effect guiExit
   ctl exit() : a
@@ -181,6 +187,16 @@ pub fun get-player-info( gui-state : guiState ) : <raylib-io, guiExit> list<play
 
   get-player-info-r()
 
+fun is-clicked( r : rectangle, p : vector2 ) : <> bool
+  val left = r.x.float64
+  val right = r.x.float64 + r.width.float64
+  val top = r.y.float64
+  val bottom = r.y.float64 + r.height.float64
+
+  val pos-x = p.x.float64
+  val pos-y = p.y.float64
+  pos-x >= left && pos-x <= right && pos-y >= top && pos-y <= bottom
+
 pub fun show-income-results( gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> ()
     // When drawing coins, draw previous income and draw new income in green
 
@@ -201,9 +217,17 @@ pub fun show-income-results( gui-state : guiState, game-state : gameState, playe
       draw-day( game-state.day )
     
       // Draw every player's info
-      gui-state.draw-players-incomes( game-state.players, player-incomes )
+      val player-stacks = gui-state.draw-players-incomes( game-state.players, player-incomes )
       
       val next-clicked = guiButton( buttonRect, "Next" )
+
+      if isMouseButtonPressed( mouseButtonLeft ) then
+        val mousePos = getMousePosition()
+        val clicked = player-stacks.filter( fn(s){ s.bounds.is-clicked( mousePos ) } )
+        match clicked.head
+          Just( p ) -> println(p.name)
+          _ -> ()
+      else ()
 
       endDrawing()
 

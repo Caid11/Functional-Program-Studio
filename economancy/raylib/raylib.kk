@@ -80,6 +80,14 @@ pub struct texture
 
 pub alias texture2D = texture
 
+pub val mouseButtonLeft : int = 0
+pub val mouseButtonRight : int = 1
+pub val mouseButtonMiddle : int = 2
+pub val mouseButtonSide : int = 3
+pub val mouseButtonExtra : int = 4
+pub val mouseButtonForward : int = 5
+pub val mouseButtonBack : int = 6
+
 // TODO: Maybe make a global struct with int fields for more type safety?
 
 // Enum values for GuiControl
@@ -164,6 +172,18 @@ extern raylib-DrawTextureEx( texture : texture2D, position : vector2, rotation :
 
 pub fun drawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
   raylib-DrawTextureEx( texture, position, rotation, scale, tint )
+
+extern raylib-IsMouseButtonPressed( button : int ) : raylib-io bool
+  c "kk_raylib_IsMouseButtonPressed"
+
+pub fun isMouseButtonPressed( button : int ) : raylib-io bool
+  raylib-IsMouseButtonPressed( button )
+
+extern raylib-GetMousePosition() : raylib-io vector2
+  c "kk_raylib_GetMousePosition"
+
+pub fun getMousePosition() : raylib-io vector2
+  raylib-GetMousePosition()
 
 //================================================================================
 // Raygui functions
