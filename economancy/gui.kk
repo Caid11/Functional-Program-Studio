@@ -52,110 +52,101 @@ type playerLoc
   Left
   Right
 
-fun get-player-coords( loc : playerLoc, container-width : int, container-height )
-  val center-horizontal = center(windowWidth, container-width)
-  val center-vertical = center(windowHeight, container-height)
+fun get-player-coords( loc : playerLoc )
+  val horiz-margin = 150
+  val vert-margin = 100
+  val center-horizontal = windowWidth / 2
+  val center-vertical = windowHeight / 2
 
   match loc
-    gui/Bottom -> (center-horizontal, windowHeight - container-height)
-    gui/Top -> (center-horizontal, 0)
-    gui/Left -> (0, center-vertical)
-    gui/Right -> (windowWidth - container-width, center-vertical)
+    gui/Bottom -> (center-horizontal, windowHeight - vert-margin)
+    gui/Top -> (center-horizontal, vert-margin)
+    gui/Left -> (horiz-margin, center-vertical)
+    gui/Right -> (windowWidth - horiz-margin, center-vertical)
 
-fun get-card-stack-offsets( card-width : int, overlap : float64, num-cards : int ) : <pure> (list<float64>, int)
+fun card-width( gui-state : guiState ) : <exn> float64
+  val card = gui-state.cards.head.unjust
+  card.tex.width.float64
+
+fun card-height( gui-state : guiState ) : <exn> float64
+  val card = gui-state.cards.head.unjust
+  card.tex.height.float64
+
+fun get-card-tex( gui-state : guiState, c : cardType )
+  gui-state.cards.filter( fn(c-info){ game/cardType/cmp(c-info.ty, c) }).head.unjust.tex
+
+fun center-text( x-pos : int, text : string, font-size : int )
+  x-pos - text.measureText( font-size ) / 2
+
+fun center-cards( x-pos : int, card-width : int, overlap : float64, num-cards : int ) : <pure> (list<int>, int)
   val overlap-amt = card-width.float64 * overlap
 
-  fun get-card-stack-offsets-r( num, offsets : list<float64>, curr-width )
-    if num == 0 then (offsets, curr-width)
+  fun center-cards-r( num, xs : list<int>, curr-width )
+    if num == 0 then (xs, curr-width)
     else
-      match offsets.last
-        Nothing -> get-card-stack-offsets-r( num - 1, [0.0], card-width )
-        Just( x ) -> get-card-stack-offsets-r( num - 1, offsets ++ [x + overlap-amt], curr-width + overlap-amt.int )
+      match xs.last
+        Nothing -> center-cards-r( num - 1, [0], card-width )
+        Just( x ) -> center-cards-r( num - 1, xs ++ [x + overlap-amt.int], curr-width + overlap-amt.int )
 
-  get-card-stack-offsets-r( num-cards, [], 0 )
+  val (offsets, width) = center-cards-r( num-cards, [], 0 )
+  val stack-offset = width / 2
 
-fun draw-player( gui-state : guiState, loc : playerLoc, player : player )
-  val container-width = windowWidth / 5
-  val container-height = windowHeight / 4
-  val (container-x, container-y) = get-player-coords( loc, container-width, container-height )
+  (offsets.map( fn( x ){ x-pos + x - stack-offset }), width)
 
-  // Name
-  val name-font-size = 36
-  val name-x = center(container-width, measureText( player.name, name-font-size ))
-  drawText( player.name, container-x + name-x, container-y, name-font-size, darkgray )
-
-  // Cards
-  val card = gui-state.cards.head.unjust
-  val card-width = card.tex.width.float64
-  val card-height  = card.tex.height.float64
-
-  val card-tgt-width = float64(container-width / 3)
-  val card-scale-factor = float32(card-tgt-width / card-width)
-  val card-tgt-height = int(card-height * card-scale-factor.float64)
-
-  // TODO: Hard-coded to 1 card
-  val cardX = float32(container-x + center(container-width, card-tgt-width.int))
-  val cardPos = Vector2(cardX, float32(name-font-size + container-y))
-  drawTextureEx(card.tex, cardPos, float32(0.0), card-scale-factor, white)
-
-  // Coins
-  val coin-text = "Coins: " ++ player.coins.show
-  drawText( coin-text, container-x + center(container-width, measureText(coin-text, name-font-size)), container-y + name-font-size + card-tgt-height, name-font-size, darkgray )
-
-fun draw-players( gui-state : guiState, players : list<player> )
-  val player-locs = [Bottom, Top, Left, Right]
-  val players-and-locs = zip( players, player-locs )
-  players-and-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p )})
+fun coin-text( coins : int, income : maybe<int> ) : <> string
+  val coin-str = "Coins: " ++ coins.show
+  match income
+    Nothing -> coin-str
+    Just( i ) -> coin-str ++ " (+" ++ i.show ++ ")"
 
 struct playerStackInfo
   name : string
   bounds : rectangle
 
-fun draw-player-income( gui-state : guiState, loc : playerLoc, player : player, income : int ) : <raylib-io> playerStackInfo
-  val container-width = windowWidth / 5
-  val container-height = windowHeight / 4
-  val (container-x, container-y) = get-player-coords( loc, container-width, container-height )
-
-  // Name
+fun draw-player( gui-state : guiState,
+                 loc : playerLoc,
+                 player : player,
+                 selected-idx : maybe<int> = Nothing,
+                 income : maybe<int> = Nothing ) : <raylib-io> playerStackInfo
   val name-font-size = 36
-  val name-x = center(container-width, measureText( player.name, name-font-size ))
-  drawText( player.name, container-x + name-x, container-y, name-font-size, darkgray )
+  val coins-font-size = 36
 
-  // Cards
-  val card = gui-state.cards.head.unjust
-  val card-width = card.tex.width.float64
-  val card-height  = card.tex.height.float64
+  val card-tgt-width = 100
+  val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
+  val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+  val card-overlap = 0.3
 
-  val card-tgt-width = float64(container-width / 3)
-  val card-scale-factor = float32(card-tgt-width / card-width)
-  val card-tgt-height = int(card-height * card-scale-factor.float64)
+  val (player-center-x, player-center-y) = get-player-coords( loc )
 
-  val (stack-offsets, stack-width) = get-card-stack-offsets( card-tgt-width.int, 0.3, player.cards.length )
+  val coins-text = coin-text( player.coins, income )
 
-  val stack-center-offset = center( container-width, stack-width )
-  val card-y = float32( name-font-size + container-y )
+  val name-x = center-text( player-center-x, player.name, name-font-size )
+  val (stack-xs, stack-width) = center-cards( player-center-x, card-tgt-width, card-overlap, player.cards.length )
+  val coins-x = center-text( player-center-x, coins-text, coins-font-size )
 
-  fun get-card-tex( c : cardType )
-    gui-state.cards.filter( fn(c-info){ game/cardType/cmp(c-info.ty, c) }).head.unjust.tex
+  val player-height = [name-font-size, card-tgt-height, coins-font-size].sum
+  val center-y-offset = player-height / 2
 
-  fun draw-card( (c : cardType, offset : float64) )
-    val card-x = float32(container-x + stack-center-offset + offset.int)
-    val card-pos = Vector2(card-x, card-y)
-    drawTextureEx( get-card-tex( c ), card-pos, float32(0.0), card-scale-factor, white)
+  val name-y = player-center-y - center-y-offset
+  val stack-y = name-y + name-font-size
+  val coins-y = stack-y + card-tgt-height
 
-  player.cards.zip( stack-offsets ).map( draw-card )
+  drawText( player.name, name-x, name-y, name-font-size, darkgray )
 
-  // Coins
-  val coin-text = "Coins: " ++ player.coins.show ++ " (+" ++ income.show ++ ")"
-  drawText( coin-text, container-x + center(container-width, measureText(coin-text, name-font-size)), container-y + name-font-size + card-tgt-height, name-font-size, darkgray )
+  player.cards.zip( stack-xs ).map( fn( (c, x) ){
+    val pos = Vector2( x.float32, stack-y.float32 )
+    drawTextureEx( get-card-tex( gui-state, c ), pos, float32(0.0), card-scale-factor.float32, white ) })
 
-  PlayerStackInfo( player.name, Rectangle( float32( container-x + stack-center-offset), card-y, stack-width.float32, card-tgt-height.float32 ) )
+  drawText( coins-text, coins-x, coins-y, coins-font-size, darkgray )
+
+  val stackBounds = Rectangle(stack-xs.head.unjust.float32, stack-y.float32, stack-width.float32, card-tgt-height.float32)
+  PlayerStackInfo( player.name, stackBounds )
 
 // TODO: This (and the function it calls) is VERY similar to draw-players. Figure out how to combine them.
 fun draw-players-incomes( gui-state : guiState, players : list<player>, incomes : list<int> ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
   val players-locs-incomes = zip( zip(players, player-locs), incomes )
-  val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player-income( gui-state, l, p, i )})
+  val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, Nothing, Just( i ) )})
   player-stacks
 
 effect guiExit
@@ -257,8 +248,3 @@ pub fun show-invest( gui-state : guiState, game-state : gameState ) : <raylib-io
       else get-player-info-r()
 
   get-player-info-r()
-      
-
-
-
-
