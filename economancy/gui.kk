@@ -61,7 +61,7 @@ fun get-player-coords( loc : playerLoc )
   val horiz-margin = 150
   val vert-margin = 100
   val center-horizontal = windowWidth / 2
-  val center-vertical = windowHeight / 2
+  val center-vertical = int(windowHeight.float64 / 2.5)
 
   match loc
     gui/Bottom -> (center-horizontal, windowHeight - vert-margin)
@@ -153,12 +153,20 @@ fun draw-player( gui-state : guiState,
   val stackBounds = Rectangle(stack-xs.head.unjust.float32, stack-y.float32, stack-width.float32, card-tgt-height.float32)
   PlayerStackInfo( player.name, stackBounds )
 
-// TODO: This (and the function it calls) is VERY similar to draw-players. Figure out how to combine them.
-fun draw-players-incomes( gui-state : guiState, players : list<player>, incomes : list<int>, examined-card : maybe<examinedCard> ) : <raylib-io> list<playerStackInfo>
+fun draw-players( gui-state : guiState,
+                  players : list<player>,
+                  examined-card : maybe<examinedCard>,
+                  maybe-incomes : maybe<list<int>> = Nothing ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
-  val players-locs-incomes = zip( zip(players, player-locs), incomes )
-  val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, examined-card, Just( i ) )})
-  player-stacks
+  match maybe-incomes
+    Just( incomes ) ->
+      val players-locs-incomes = zip( zip(players, player-locs), incomes )
+      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, examined-card, Just( i ) )})
+      player-stacks
+    Nothing ->
+      val players-locs = zip( players, player-locs )
+      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, examined-card )})
+      player-stacks
 
 effect guiExit
   ctl exit() : a
@@ -286,7 +294,8 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
       draw-phase( game-state.phase )
       draw-day( game-state.day )
     
-      val player-stacks = gui-state.draw-players-incomes( game-state.players, player-incomes, gui-state.examined )
+      // Draw player cards and examined card
+      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined, Just( player-incomes ) )
       val examined-card = gui-state.get-examined-card( game-state, player-stacks )
       val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
 
@@ -299,24 +308,75 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
 
   show-income-results-r( init-gui-state )
       
-pub fun show-invest( gui-state : guiState, game-state : gameState ) : <raylib-io, guiExit> ()
-  val buttonWidth : float64 = windowWidth.float64 / 4.0
-  val buttonHeight : float64 = windowHeight.float64 / 4.0
-  val buttonXPos : float64 = windowWidth.float64 / 2.0 - buttonWidth / 2.0
-  val buttonYPos : float64 = windowHeight.float64 / 2.0 - buttonHeight / 2.0
-  val buttonRect = Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
+pub fun get-investment( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> int
+  val padding = 25
 
-  fun get-player-info-r()
+  val adjust-center-x = windowWidth / 2
+  val adjust-center-y = windowHeight / 2
+
+  val adjust-btn-width = 75
+  val invest-font-size = adjust-btn-width
+
+  val num-coins = game-state.get-player( player-name ).coins
+
+  fun get-investment-r( gui-state : guiState, curr-invest : int )
+    val adjust-down-x = 0
+    val invest-x = adjust-down-x + adjust-btn-width + padding
+    val adjust-up-x = invest-x + measureText( curr-invest.show, invest-font-size ) + padding
+    val total-width = adjust-up-x + adjust-btn-width
+    val center-x-offset = total-width / 2
+
+    val total-height = [adjust-btn-width, padding, adjust-btn-width].sum
+    val center-y-offset = total-height / 2
+
+    val adjust-down-pos = Rectangle( float32(adjust-center-x - center-x-offset + adjust-down-x),
+                                    float32(adjust-center-y - center-y-offset),
+                                    float32(adjust-btn-width),
+                                    float32(adjust-btn-width))
+
+    val invest-text-x = adjust-center-x - center-x-offset + invest-x
+    val invest-text-y = adjust-center-y - center-y-offset
+
+    val adjust-up-pos = Rectangle( float32(adjust-center-x - center-x-offset + adjust-up-x),
+                                    float32(adjust-center-y - center-y-offset),
+                                    float32(adjust-btn-width),
+                                    float32(adjust-btn-width))
+
+    val invest-btn-pos = Rectangle( float32(adjust-center-x - center-x-offset),
+                                    float32(adjust-center-y - center-y-offset + padding + adjust-btn-width),
+                                    float32(total-width),
+                                    float32(adjust-btn-width))
+
     if windowShouldClose() then exit()
     else
       clearBackground( raywhite )
       beginDrawing()
 
-      val start-clicked = guiButton( buttonRect, "Invest" )
+      // Draw phase and day
+      draw-phase( game-state.phase )
+      draw-day( game-state.day )
+    
+      // Draw player cards and examined card
+      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined )
+      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+
+      // Draw invest controls
+      val down-clicked = guiButton( adjust-down-pos, "-" )
+      drawText( curr-invest.show, invest-text-x, invest-text-y, invest-font-size, darkgray )
+      val up-clicked = guiButton( adjust-up-pos, "+" )
+      val invest-clicked = guiButton( invest-btn-pos, "Invest" )
+
+      val new-invest = if down-clicked then
+        [0, curr-invest - 1].maximum
+      else if up-clicked then
+        [num-coins, curr-invest + 1].minimum
+      else curr-invest
 
       endDrawing()
 
-      if start-clicked then ()
-      else get-player-info-r()
+      if invest-clicked then curr-invest
+      else get-investment-r( gui-state( examined = new-examined-card ), new-invest )
 
-  get-player-info-r()
+  get-investment-r( init-gui-state, 0 )
+

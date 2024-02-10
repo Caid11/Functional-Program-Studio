@@ -1,11 +1,15 @@
 pub type phase
   Income
   Invest
+  Attack
+  Buy
 
 pub fun phase/str( p : phase )
   match p
     Income -> "INCOME"
     Invest -> "INVEST"
+    Attack -> "ATTACK"
+    Buy -> "BUY"
 
 pub type day
   One
@@ -14,9 +18,9 @@ pub type day
 
 pub fun day/str( d : day )
   match d
-    One -> "ONE"
-    Two -> "TWO"
-    Three -> "THREE"
+    One -> "1"
+    Two -> "2"
+    Three -> "3"
 
 pub type cardType
   SorcerersStipend
@@ -45,6 +49,7 @@ pub struct gameState
   day : day
   store : list<stock>
   players : list<player>
+  attacker : maybe<string>
 
 pub struct playerInitInfo
   name : string
@@ -58,7 +63,7 @@ pub fun get-init-state( player-inits : list<playerInitInfo> )
   val worker-stock = Stock( Worker, 2 )
   val store = [worker-stock]
 
-  GameState( Income, One, store, players )
+  GameState( Income, One, store, players, Nothing )
 
 fun get-card-income( card : cardType, d : day )
   match card 
@@ -79,8 +84,28 @@ fun get-player-income( state : gameState, p : player )
 
 pub fun resolve-income( state : gameState ) : <pure> (gameState, list<int>)
   val incomes = state.players.map( fn( p ){ get-player-income( state, p )} )
-
-  val new-player-states = zip( state.players, incomes ).map( fn( (p,i) ){ Player( p.player/name, p.coins + i, p.cards ) })
-  val new-state = GameState( Invest, state.day, state.store, new-player-states )
-
+  val new-players = zip( state.players, incomes ).map( fn( (p,i) ){ Player( p.player/name, p.coins + i, p.cards ) })
+  val new-state = state( phase = Invest, players = new-players )
   (new-state, incomes)
+
+pub struct investResult
+  winner-name : maybe<string>
+  investments : list<int>
+
+pub fun resolve-invest( state : gameState, player-invests : list<int> ) : <pure> (gameState, investResult)
+  val players-and-invests = state.players.zip( player-invests )
+  val new-players = players-and-invests.map( fn( (p,i) ) { p( coins = p.coins - i) })
+
+  val max-invest = player-invests.maximum
+  val max-count = player-invests.foldl( 0, fn(c, i){ if i == max-invest then c + 1 else c })
+
+  // If all investments are the same, there is no winner
+  if max-count > 1 then
+    (state( phase = Buy, players = new-players ), InvestResult( Nothing, player-invests ))
+  // Otherwise, the player with the maximum investment wins
+  else
+    val (winner,_) = players-and-invests.find( fn( (p, i) ){ i == max-invest } ).unjust
+    val winner-name = winner.player/name
+
+    (state( phase = Attack, players = new-players, attacker = Just( winner-name ) ),
+      InvestResult( Just( winner-name ), player-invests ) )
