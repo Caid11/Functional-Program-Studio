@@ -10,7 +10,10 @@ fun game-loop( gui-state : guiState, game-state : gameState )
     Invest ->
       val alice-invest = gui-state.get-investment( game-state, "Alice" )
       val investments = [alice-invest, 0, 0, 0]
+
       val (new-game-state, invest-results) = game-state.resolve-invest( investments )
+      gui-state.show-invest-results( game-state, invest-results )
+
       game-loop( gui-state, new-game-state )
     Attack -> ()
     Buy -> ()

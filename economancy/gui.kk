@@ -100,9 +100,12 @@ fun center-cards( x-pos : int, card-width : int, overlap : float64, num-cards : 
 
 fun coin-text( coins : int, income : maybe<int> ) : <> string
   val coin-str = "Coins: " ++ coins.show
+
   match income
     Nothing -> coin-str
-    Just( i ) -> coin-str ++ " (+" ++ i.show ++ ")"
+    Just( i ) -> 
+      val sign-str = if i > 0 then "+" else ""
+      coin-str ++ " (" ++ sign-str ++ i.show ++ ")"
 
 struct playerStackInfo
   name : string
@@ -275,15 +278,18 @@ fun draw-examined-card( gui-state : guiState, game-state : gameState, card : may
 
       Just( ExaminedCard( player-name, new-card-idx ) )
 
+fun next-btn() : raylib-io bool
+  val btn-width : float64 = 300.0
+  val btn-height : float64 = 150.0
+
+  val btn-x : float64 = windowWidth.float64 - btn-width - 25.0
+  val btn-y : float64 = windowHeight.float64 - btn-height - 25.0
+
+  val btn-pos = Rectangle( btn-x.float32, btn-y.float32, btn-width.float32, btn-height.float32 )
+
+  guiButton( btn-pos, "Next" )
+
 pub fun show-income-results( init-gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> guiState
-    // When drawing coins, draw previous income and draw new income in green
-
-  val buttonWidth : float64 = 300.0
-  val buttonHeight : float64 = 150.0
-  val buttonXPos : float64 = windowWidth.float64 - buttonWidth - 25.0
-  val buttonYPos : float64 = windowHeight.float64 - buttonHeight - 25.0
-  val buttonRect = Rectangle( buttonXPos.float32, buttonYPos.float32, buttonWidth.float32, buttonHeight.float32 )
-
   fun show-income-results-r( gui-state : guiState )
     if windowShouldClose() then exit()
     else
@@ -299,7 +305,7 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
       val examined-card = gui-state.get-examined-card( game-state, player-stacks )
       val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
 
-      val next-clicked = guiButton( buttonRect, "Next" )
+      val next-clicked = next-btn()
 
       endDrawing()
 
@@ -379,4 +385,50 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
       else get-investment-r( gui-state( examined = new-examined-card ), new-invest )
 
   get-investment-r( init-gui-state, 0 )
+
+pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, invest-result : investResult ) : <raylib-io, guiExit> guiState
+  fun show-invest-results-r( gui-state : guiState )
+    if windowShouldClose() then exit()
+    else
+      clearBackground( raywhite )
+      beginDrawing()
+
+      // Draw phase and day
+      draw-phase( game-state.phase )
+      draw-day( game-state.day )
+
+      val player-incomes = invest-result.investments.map( fn( invest ){ invest * -1 } )
+    
+      // Draw player cards and examined card
+      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined, Just( player-incomes ) )
+      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+
+      // Draw invest winner (or indicate that no one one)
+      val winner-text = match invest-result.winner-name
+        Nothing -> "No one wins"
+        Just( name ) -> name ++ " wins!"
+      
+      val center-x = windowWidth / 2
+      val center-y = windowHeight / 2
+
+      val winner-text-size = 125
+
+      val center-x-offset = measureText( winner-text, winner-text-size ) / 2
+      val center-y-offset = winner-text-size / 2
+
+      val winner-x = center-x - center-x-offset
+      val winner-y = center-y - center-y-offset
+
+      drawText( winner-text, winner-x, winner-y, winner-text-size, darkgray )
+
+      val next-clicked = next-btn()
+
+      endDrawing()
+
+      if next-clicked then gui-state( examined = examined-card )
+      else show-invest-results-r( gui-state( examined = new-examined-card ) )
+
+  show-invest-results-r( init-gui-state )
+
 
