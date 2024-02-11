@@ -182,6 +182,7 @@ struct playerStackInfo
 fun draw-player( gui-state : guiState,
                  loc : playerLoc,
                  player : player,
+                 active-player : maybe<string>,
                  income : maybe<int> = Nothing ) : <raylib-io> playerStackInfo
   val name-font-size = 36
   val coins-font-size = 36
@@ -204,7 +205,11 @@ fun draw-player( gui-state : guiState,
   val stack-y = name-y + name-font-size
   val coins-y = stack-y + card-scaled.height
 
-  drawText( player.name, name-x, name-y, name-font-size, darkgray )
+  val name-color = match active-player
+    Nothing -> darkgray
+    Just( n ) -> if n == player.name then green else darkgray
+
+  drawText( player.name, name-x, name-y, name-font-size, name-color )
 
   val card-bounds = player.cards.zip( stack-xs ).map-indexed( fn( i, (c, x) ){
     val bounds = gui-state.draw-card( c, x, stack-y, card-scaled.width, white )
@@ -216,16 +221,17 @@ fun draw-player( gui-state : guiState,
 
 fun draw-players( gui-state : guiState,
                   players : list<player>,
+                  active-player : maybe<string> = Nothing,
                   maybe-incomes : maybe<list<int>> = Nothing ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
   match maybe-incomes
     Just( incomes ) ->
       val players-locs-incomes = zip( zip(players, player-locs), incomes )
-      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, Just( i ) )})
+      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, active-player, Just( i ) )})
       player-stacks
     Nothing ->
       val players-locs = zip( players, player-locs )
-      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p )})
+      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, active-player )})
       player-stacks
 
 effect guiExit
@@ -373,7 +379,7 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, Just( player-incomes ) )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
 
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
       gui-state.hover-card( stack-bounds )
@@ -438,7 +444,7 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players )
+      val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw invest controls
@@ -478,7 +484,7 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
       val player-incomes = invest-result.investments.map( fn( invest ){ invest * -1 } )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, Just( player-incomes ) )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw invest winner (or indicate that no one one)
@@ -553,7 +559,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players )
+      val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
@@ -704,7 +710,7 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
       draw-day( game-state.day )
     
       // Draw player cards and examined card
-      val player-stacks = gui-state.draw-players( game-state.players )
+      val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw store cards
@@ -784,7 +790,7 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
     
       // Draw player cards
       val player-incomes = buy-result.purchase-amts.map( fn(x){ x * -1 })
-      val player-stacks = gui-state.draw-players( game-state.players, Just( player-incomes ) )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw purchased cards.
