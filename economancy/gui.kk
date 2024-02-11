@@ -59,7 +59,7 @@ type playerLoc
 
 fun get-player-coords( loc : playerLoc )
   val horiz-margin = 150
-  val vert-margin = 100
+  val vert-margin = 125
   val center-horizontal = windowWidth / 2
   val center-vertical = int(windowHeight.float64 / 2.5)
 
@@ -210,6 +210,54 @@ fun is-clicked( r : rectangle, p : vector2 ) : <> bool
   val pos-y = p.y.float64
   pos-x >= left && pos-x <= right && pos-y >= top && pos-y <= bottom
 
+fun card-chooser( gui-state : guiState,
+                  possible-cards : list<cardType>,
+                  card-idx : int,
+                  pos-x : int,
+                  pos-y : int,
+                  card-tgt-width : int ) : raylib-io int
+  val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
+  val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+
+  val switch-button-width = card-tgt-width / 3
+  val padding = 25
+
+  val switch-left-x = 0
+  val card-x = switch-left-x + switch-button-width + padding
+  val switch-right-x = card-x + card-tgt-width + padding
+  val chooser-width = [switch-button-width, padding, card-tgt-width, padding, switch-button-width].sum
+  val center-offset-x = chooser-width / 2
+
+  val switch-offset-y = switch-button-width / 2
+  val card-offset-y = card-tgt-height / 2
+
+  val left-switch-rect = Rectangle( float32(pos-x - center-offset-x), 
+                                    float32(pos-y - switch-offset-y),
+                                    switch-button-width.float32, switch-button-width.float32 )
+  val switch-left-clicked = guiButton( left-switch-rect, "<" )
+
+  val card-pos = Vector2( float32(pos-x - center-offset-x + card-x),
+                          float32(pos-y - card-offset-y))
+
+  val card-ty = possible-cards[card-idx].unjust
+  drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scale-factor.float32, white )
+
+  val right-switch-rect = Rectangle( float32(pos-x - center-offset-x + switch-right-x), 
+                                     float32(pos-y - switch-offset-y),
+                                     switch-button-width.float32, switch-button-width.float32 )
+  val switch-right-clicked = guiButton( right-switch-rect, ">" )
+
+  val num-cards = possible-cards.length
+
+  val new-card-idx = 
+    if switch-left-clicked then 
+      if card-idx == 0 then num-cards - 1
+      else card-idx - 1
+    else if switch-right-clicked then (card-idx + 1) % num-cards
+    else card-idx
+
+  new-card-idx
+
 fun get-examined-card( gui-state : guiState, game-state : gameState, card-stacks : list<playerStackInfo> )
     if isMouseButtonPressed( mouseButtonLeft ) then
       val mousePos = getMousePosition()
@@ -230,51 +278,17 @@ fun draw-examined-card( gui-state : guiState, game-state : gameState, card : may
   match card
     Nothing -> Nothing
     Just( ExaminedCard( player-name, card-idx ) ) ->
-      val examine-center-x = 250
-      val examine-center-y = windowHeight - 225
+      val examine-center-x = 300
+      val examine-center-y = windowHeight - 250
+      val examine-card-width = 300
 
-      val padding = 25
+      val possible-cards = game-state.get-player( player-name ).cards
 
-      val card-ty = get-player-card( game-state, player-name, card-idx )
-
-      // TODO: Duplicated. Make a helper func
-      val card-tgt-width = 300
-      val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
-      val card-tgt-height = int( gui-state.card-height * card-scale-factor )
-
-      val switch-button-width = 50
-
-      val switch-left-x = 0
-      val card-x = switch-left-x + switch-button-width + padding
-      val switch-right-x = card-x + card-tgt-width + padding
-      val chooser-width = [switch-button-width, padding, card-tgt-width, padding, switch-button-width].sum
-      val center-offset-x = chooser-width / 2
-
-      val switch-offset-y = switch-button-width / 2
-      val card-offset-y = card-tgt-height / 2
-
-      val left-switch-rect = Rectangle( float32(examine-center-x - center-offset-x), 
-                                        float32(examine-center-y - switch-offset-y),
-                                        switch-button-width.float32, switch-button-width.float32 )
-      val switch-left-clicked = guiButton( left-switch-rect, "<" )
-
-      val card-pos = Vector2( float32(examine-center-x - center-offset-x + card-x),
-                              float32(examine-center-y - card-offset-y))
-      drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scale-factor.float32, white )
-
-      val right-switch-rect = Rectangle( float32(examine-center-x - center-offset-x + switch-right-x), 
-                                        float32(examine-center-y - switch-offset-y),
-                                        switch-button-width.float32, switch-button-width.float32 )
-      val switch-right-clicked = guiButton( right-switch-rect, ">" )
-
-      val num-cards = game-state.get-player( player-name ).cards.length
-
-      val new-card-idx = 
-        if switch-left-clicked then 
-          if card-idx == 0 then num-cards - 1
-          else card-idx - 1
-        else if switch-right-clicked then (card-idx + 1) % num-cards
-        else card-idx
+      val new-card-idx = gui-state.card-chooser( possible-cards,
+                                                 card-idx,
+                                                 examine-center-x,
+                                                 examine-center-y,
+                                                 examine-card-width )
 
       Just( ExaminedCard( player-name, new-card-idx ) )
 
@@ -314,7 +328,7 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
 
   show-income-results-r( init-gui-state )
       
-pub fun get-investment( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> int
+pub fun get-investment( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, int)
   val padding = 25
 
   val adjust-center-x = windowWidth / 2
@@ -381,8 +395,9 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
 
       endDrawing()
 
-      if invest-clicked then curr-invest
-      else get-investment-r( gui-state( examined = new-examined-card ), new-invest )
+      val new-gui-state = gui-state( examined = new-examined-card )
+      if invest-clicked then (new-gui-state, curr-invest)
+      else get-investment-r( new-gui-state, new-invest )
 
   get-investment-r( init-gui-state, 0 )
 
@@ -431,4 +446,162 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
 
   show-invest-results-r( init-gui-state )
 
+pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, maybe<int>)
+  val padding = 25
 
+  // TODO: Make card-chooser return width and height so we can place elements around it
+
+  val center-x = windowWidth / 2
+  val center-y = windowHeight / 2
+
+  val attacker-name = game-state.attacker.unjust
+  val choose-text = if attacker-name == player-name then "Choose attacker" else "Choose defender"
+  val choose-font-size = 60
+
+  val chooser-card-width = 300
+  
+  val choose-text-x = center-x - measureText( choose-text, choose-font-size ) / 2
+  val choose-text-y = 230
+
+  val possible-cards = game-state.get-player( player-name ).cards
+
+  val btn-width = 300.0
+  val btn-height = 150.0
+
+  val btn-x : float64 = windowWidth.float64 - btn-width - 25.0
+
+  val pass-btn-y : float64 = windowHeight.float64 - btn-height - 25.0
+  val choose-btn-y : float64 = pass-btn-y - 25.0 - btn-height
+
+  val pass-btn-pos = Rectangle( btn-x.float32, pass-btn-y.float32, btn-width.float32, btn-height.float32 )
+  val choose-btn-pos = Rectangle( btn-x.float32, choose-btn-y.float32, btn-width.float32, btn-height.float32 )
+
+  fun get-attack-card-r( gui-state : guiState, curr-card-idx : int )
+    if windowShouldClose() then exit()
+    else
+      clearBackground( raywhite )
+      beginDrawing()
+
+      // Draw phase and day
+      draw-phase( game-state.phase )
+      draw-day( game-state.day )
+    
+      // Draw player cards and examined card
+      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined )
+      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+
+      drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
+
+      // TODO: Add effects (e.g. fainted, cannot attack, twice attack, etc.) to cards and only allow choosing if legal
+      // TODO: Highlight selected attack/defend card in red
+
+      val new-card-idx = gui-state.card-chooser( possible-cards,
+                                                 curr-card-idx,
+                                                 center-x,
+                                                 center-y - 15,
+                                                 chooser-card-width )
+
+      val choose-clicked = guiButton( choose-btn-pos, "Choose" )
+      val pass-clicked = guiButton( pass-btn-pos, "Pass" )
+
+      endDrawing()
+
+      val new-gui-state = gui-state( examined = examined-card )
+
+      if pass-clicked then (new-gui-state, Nothing)
+      else if choose-clicked then (new-gui-state, Just( curr-card-idx ))
+      else get-attack-card-r( new-gui-state, new-card-idx )
+
+  get-attack-card-r( init-gui-state, 0 )
+
+pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, attack-result : attackResult) : <raylib-io, guiExit> guiState
+  fun draw-player-choice( gui-state : guiState, player-name : string, card-ty : cardType, pos-x : int, pos-y : int, card-tgt-width : int )
+    val name-size = 30
+    val player-text-width = measureText( player-name, name-size )
+
+    val padding = 10
+    
+    val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
+    val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+
+    val total-height = [name-size, padding, card-tgt-height].sum
+    val center-y-offset = total-height / 2
+
+    val name-x = pos-x - player-text-width / 2
+    val name-y = pos-y - center-y-offset
+
+    val card-x = pos-x - card-tgt-width / 2
+    val card-y = name-y + padding + name-size
+    val card-pos = Vector2( card-x.float32, card-y.float32 )
+
+    drawText( player-name, name-x, name-y, name-size, darkgray )
+    drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scale-factor.float32, white )
+
+  fun show-attack-results-r( gui-state : guiState )
+    if windowShouldClose() then exit()
+    else
+      clearBackground( raywhite )
+      beginDrawing()
+
+      // Draw phase and day
+      draw-phase( game-state.phase )
+      draw-day( game-state.day )
+
+      // Draw player cards and examined card
+      // val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined )
+      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+
+      // TODO: We'll need to reset the examined card if it has fainted
+
+      val choice-width = 175
+      val center-y = windowHeight / 2
+
+      val start-x = 250
+      draw-player-choice( gui-state, attack-result.attacker-name, attack-result.attacker-card, start-x, center-y, choice-width )
+
+      val vs-x = start-x + choice-width / 2 + 25
+      val vs-size = 75
+      val vs-y = center-y - vs-size / 2
+      drawText("VS", vs-x, vs-y, vs-size, darkgray)
+
+      val defender-x = vs-x + measureText( "VS", vs-size ) + 25 + choice-width / 2
+
+      val defenders = game-state.players.filter( fn(p){p.name != attack-result.attacker-name} )
+      val defenders-and-choices = defenders.zip( attack-result.defender-cards )
+
+      val defender-offset = center-y / 2 + 50
+      val defender-y-pos = [center-y - defender-offset, center-y, center-y + defender-offset]
+
+      val defenders-choice-pos = defenders-and-choices.zip( defender-y-pos )
+
+      // TODO: This feels like an antipattern. Explore a better data structure
+      val defenders-choice-pos-outcome = defenders-choice-pos.zip( attack-result.outcomes )
+
+      val equals-x = defender-x + choice-width / 2 + 25
+
+      val outcome-x = equals-x + measureText( "=", vs-size ) + 25
+
+      defenders-choice-pos-outcome.map( fn( (((player, choice), y-pos), outcome) ) {
+        draw-player-choice( gui-state, player.player/name, choice, defender-x, y-pos, choice-width )
+        drawText( "=", equals-x, y-pos, vs-size, darkgray )
+
+        val outcome-text = match outcome
+          DrawNoFaint -> "Draw"
+          DrawBothFaint -> "Both cards fainted!"
+          AttackerFainted -> attack-result.attacker-name ++ "'s card fainted!"
+          DefenderFainted -> player.player/name ++ "'s card fainted!"
+          DefenderDefeated -> player.player/name ++ " is defeated!"
+
+        drawText( outcome-text, outcome-x, y-pos, vs-size, darkgray )
+      })
+
+      val next-clicked = next-btn()
+
+      endDrawing()
+
+      if next-clicked then gui-state
+      else show-attack-results-r( gui-state )
+
+  show-attack-results-r( init-gui-state )

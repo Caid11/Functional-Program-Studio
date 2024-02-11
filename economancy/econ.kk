@@ -5,17 +5,24 @@ fun game-loop( gui-state : guiState, game-state : gameState )
   match game-state.phase
     Income ->
       val (new-game-state, player-incomes) = game-state.resolve-income()
-      gui-state.show-income-results( game-state, player-incomes )
-      game-loop( gui-state, new-game-state )
+      val new-gui-state = gui-state.show-income-results( game-state, player-incomes )
+      game-loop( new-gui-state, new-game-state )
     Invest ->
-      val alice-invest = gui-state.get-investment( game-state, "Alice" )
+      val (invest-gui-state, alice-invest) = gui-state.get-investment( game-state, "Alice" )
       val investments = [alice-invest, 0, 0, 0]
 
       val (new-game-state, invest-results) = game-state.resolve-invest( investments )
-      gui-state.show-invest-results( game-state, invest-results )
+      val new-gui-state = invest-gui-state.show-invest-results( game-state, invest-results )
 
-      game-loop( gui-state, new-game-state )
-    Attack -> ()
+      game-loop( new-gui-state, new-game-state )
+    Attack ->
+      val (attack-gui-state, alice-card) = gui-state.get-attack-card( game-state, "Alice" )
+      val cards = [alice-card, Nothing, Nothing, Nothing]
+
+      val (new-game-state, attack-results) = game-state.resolve-attack( cards )
+      val new-gui-state = attack-gui-state.show-attack-results( game-state, attack-results )
+
+      game-loop( new-gui-state, new-game-state )
     Buy -> ()
 
 

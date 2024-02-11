@@ -109,3 +109,23 @@ pub fun resolve-invest( state : gameState, player-invests : list<int> ) : <pure>
 
     (state( phase = Attack, players = new-players, attacker = Just( winner-name ) ),
       InvestResult( Just( winner-name ), player-invests ) )
+
+pub type attackOutcome
+  DrawNoFaint
+  DrawBothFaint
+  AttackerFainted
+  DefenderFainted
+  DefenderDefeated
+
+pub struct attackResult
+  attacker-name : string
+  attacker-card : cardType
+  defender-cards : list<cardType>
+  outcomes : list<attackOutcome>
+  
+pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : pure (gameState, attackResult)
+  // TODO: Actually resolve attack phase
+  val dummy-outcomes = [DrawBothFaint, AttackerFainted, DefenderDefeated]
+  val chosen = [Worker, Worker, Worker]
+  val dummy-result = AttackResult( state.attacker.unjust, Worker, chosen, dummy-outcomes )
+  (state( phase = Buy, attacker = Nothing ), dummy-result)
