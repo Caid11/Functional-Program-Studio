@@ -112,6 +112,16 @@ fun card-height( gui-state : guiState ) : <exn> float64
 fun get-card-tex( gui-state : guiState, c : cardType )
   gui-state.cards.filter( fn(c-info){ game/cardType/cmp(c-info.ty, c) }).head.unjust.tex
 
+struct cardScaleInfo
+  width : int
+  height : int
+  scale-factor : float64
+
+fun scale-card( gui-state : guiState, tgt-width : int ) : pure cardScaleInfo
+  val scale-factor = tgt-width.float64 / gui-state.card-width
+  val tgt-height = int( gui-state.card-height * scale-factor )
+  CardScaleInfo( tgt-width, tgt-height, scale-factor )
+
 fun center-text( x-pos : int, text : string, font-size : int )
   x-pos - text.measureText( font-size ) / 2
 
@@ -151,13 +161,11 @@ fun draw-card( gui-state : guiState,
                y-pos : int,
                tgt-width : int,
                highlight-color : color ) : raylib-io bounds
-  val scale-factor = tgt-width.float64 / gui-state.card-width
-  val tgt-height = int( gui-state.card-height * scale-factor )
-
+  val scaled = gui-state.scale-card( tgt-width )
   val pos = Vector2( x-pos.float32, y-pos.float32 )
-  drawTextureEx( get-card-tex( gui-state, card ), pos, float32(0.0), scale-factor.float32, highlight-color )
+  drawTextureEx( gui-state.get-card-tex( card ), pos, float32(0.0), scaled.scale-factor.float32, highlight-color )
 
-  Bounds( x-pos, y-pos, tgt-width, tgt-height)
+  Bounds( x-pos, y-pos, scaled.width, scaled.height)
 
 struct cardBounds
   b : bounds
@@ -175,10 +183,7 @@ fun draw-player( gui-state : guiState,
   val name-font-size = 36
   val coins-font-size = 36
 
-  // TODO: Very duplicated
-  val card-tgt-width = 100
-  val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
-  val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+  val card-scaled = gui-state.scale-card( 100 )
   val card-overlap = 0.3
 
   val (player-center-x, player-center-y) = get-player-coords( loc )
@@ -186,15 +191,15 @@ fun draw-player( gui-state : guiState,
   val coins-text = coin-text( player.coins, income )
 
   val name-x = center-text( player-center-x, player.name, name-font-size )
-  val (stack-xs, stack-width) = center-cards( player-center-x, card-tgt-width, card-overlap, player.cards.length )
+  val (stack-xs, stack-width) = center-cards( player-center-x, card-scaled.width, card-overlap, player.cards.length )
   val coins-x = center-text( player-center-x, coins-text, coins-font-size )
 
-  val player-height = [name-font-size, card-tgt-height, coins-font-size].sum
+  val player-height = [name-font-size, card-scaled.height, coins-font-size].sum
   val center-y-offset = player-height / 2
 
   val name-y = player-center-y - center-y-offset
   val stack-y = name-y + name-font-size
-  val coins-y = stack-y + card-tgt-height
+  val coins-y = stack-y + card-scaled.height
 
   drawText( player.name, name-x, name-y, name-font-size, darkgray )
 
@@ -205,7 +210,7 @@ fun draw-player( gui-state : guiState,
         if player-name == player.name && i == idx then yellow
         else white
 
-    val bounds = gui-state.draw-card( c, x, stack-y, card-tgt-width, highlight-color )
+    val bounds = gui-state.draw-card( c, x, stack-y, card-scaled.width, highlight-color )
     CardBounds( bounds, c ) })
 
   drawText( coins-text, coins-x, coins-y, coins-font-size, darkgray )
@@ -280,20 +285,19 @@ fun card-chooser( gui-state : guiState,
                   pos-x : int,
                   pos-y : int,
                   card-tgt-width : int ) : raylib-io int
-  val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
-  val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+  val card-scaled = gui-state.scale-card( card-tgt-width )
 
   val switch-button-width = card-tgt-width / 3
   val padding = 25
 
   val switch-left-x = 0
   val card-x = switch-left-x + switch-button-width + padding
-  val switch-right-x = card-x + card-tgt-width + padding
-  val chooser-width = [switch-button-width, padding, card-tgt-width, padding, switch-button-width].sum
+  val switch-right-x = card-x + card-scaled.width + padding
+  val chooser-width = [switch-button-width, padding, card-scaled.width, padding, switch-button-width].sum
   val center-offset-x = chooser-width / 2
 
   val switch-offset-y = switch-button-width / 2
-  val card-offset-y = card-tgt-height / 2
+  val card-offset-y = card-scaled.height / 2
 
   val left-switch-rect = Rectangle( float32(pos-x - center-offset-x), 
                                     float32(pos-y - switch-offset-y),
@@ -304,7 +308,7 @@ fun card-chooser( gui-state : guiState,
                           float32(pos-y - card-offset-y))
 
   val card-ty = possible-cards[card-idx].unjust
-  drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scale-factor.float32, white )
+  drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scaled.scale-factor.float32, white )
 
   val right-switch-rect = Rectangle( float32(pos-x - center-offset-x + switch-right-x), 
                                      float32(pos-y - switch-offset-y),
@@ -322,39 +326,11 @@ fun card-chooser( gui-state : guiState,
 
   new-card-idx
 
-// fun get-examined-card( gui-state : guiState, game-state : gameState, card-stacks : list<playerStackInfo> )
-//     if isMouseButtonPressed( mouseButtonLeft ) then
-//       val mousePos = getMousePosition()
-//       val clicked = card-stacks.filter( fn(s){ s.bounds.is-clicked( mousePos ) } )
-//       match clicked.head
-//         Just( p ) -> Just( ExaminedCard( p.name, 0 ) )
-//         _ -> gui-state.examined
-//     else gui-state.examined
-
 fun get-player( game-state : gameState, player-name : string )
   game-state.players.find( fn( p ){ p.name == player-name }).unjust
 
 fun get-player-card( game-state : gameState, player-name : string, card-idx : int )
   game-state.get-player( player-name ).cards[card-idx].unjust
-
-// TODO: This draws the examine card AND potentially switches it. Refactor.
-// fun draw-examined-card( gui-state : guiState, game-state : gameState, card : maybe<examinedCard> )
-//   match card
-//     Nothing -> Nothing
-//     Just( ExaminedCard( player-name, card-idx ) ) ->
-//       val examine-center-x = 300
-//       val examine-center-y = windowHeight - 250
-//       val examine-card-width = 300
-// 
-//       val possible-cards = game-state.get-player( player-name ).cards
-// 
-//       val new-card-idx = gui-state.card-chooser( possible-cards,
-//                                                  card-idx,
-//                                                  examine-center-x,
-//                                                  examine-center-y,
-//                                                  examine-card-width )
-// 
-//       Just( ExaminedCard( player-name, new-card-idx ) )
 
 fun next-btn() : raylib-io bool
   val btn-width : float64 = 300.0
@@ -368,15 +344,12 @@ fun next-btn() : raylib-io bool
   guiButton( btn-pos, "Next" )
 
 fun draw-mouse-over( gui-state : guiState, card : cardType, x-pos : int, y-pos : int ) : raylib-io ()
-  // TODO: DUPLICATED
-  val card-tgt-width = 300
-  val scale-factor = card-tgt-width.float64 / gui-state.card-width
-  val tgt-height = int( gui-state.card-height * scale-factor )
+  val card-scaled = gui-state.scale-card( 300 )
 
-  val card-x = if x-pos > windowWidth / 2 then x-pos - card-tgt-width else x-pos
-  val card-y = if y-pos > windowHeight / 2 then y-pos - tgt-height else y-pos
+  val card-x = if x-pos > windowWidth / 2 then x-pos - card-scaled.width else x-pos
+  val card-y = if y-pos > windowHeight / 2 then y-pos - card-scaled.height else y-pos
 
-  gui-state.draw-card( card, card-x, card-y, card-tgt-width, white)
+  gui-state.draw-card( card, card-x, card-y, card-scaled.width, white)
   ()
 
 pub fun show-income-results( init-gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> guiState
@@ -629,21 +602,20 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
 
     val padding = 10
     
-    val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
-    val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+    val card-scaled = gui-state.scale-card( card-tgt-width )
 
-    val total-height = [name-size, padding, card-tgt-height].sum
+    val total-height = [name-size, padding, card-scaled.height].sum
     val center-y-offset = total-height / 2
 
     val name-x = pos-x - player-text-width / 2
     val name-y = pos-y - center-y-offset
 
-    val card-x = pos-x - card-tgt-width / 2
+    val card-x = pos-x - card-scaled.width / 2
     val card-y = name-y + padding + name-size
     val card-pos = Vector2( card-x.float32, card-y.float32 )
 
     drawText( player-name, name-x, name-y, name-size, darkgray )
-    drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scale-factor.float32, white )
+    drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scaled.scale-factor.float32, white )
 
   fun show-attack-results-r( gui-state : guiState )
     if windowShouldClose() then exit()
@@ -727,10 +699,7 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
 
       // Draw store cards
 
-      // TODO: This is all over the place. Pull it into a function
-      val card-tgt-width = 150
-      val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
-      val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+      val card-scaled = gui-state.scale-card( 150 )
 
       val start-x = 300
       val start-y = 250
@@ -742,11 +711,11 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
         match s
           Nil -> ()
           Cons( Stock( card, num ), rest ) ->
-            drawTextureEx( get-card-tex( gui-state, card ), pos, float32(0.0), card-scale-factor.float32, white )
+            drawTextureEx( get-card-tex( gui-state, card ), pos, float32(0.0), card-scaled.scale-factor.float32, white )
 
             val new-row-idx = (row-idx + 1) % num-cards-in-row
-            val new-x-pos = if new-row-idx > row-idx then x-pos + card-tgt-width + 10 else start-x
-            val new-y-pos = if new-row-idx > row-idx then y-pos else y-pos + card-tgt-height + 25
+            val new-x-pos = if new-row-idx > row-idx then x-pos + card-scaled.width + 10 else start-x
+            val new-y-pos = if new-row-idx > row-idx then y-pos else y-pos + card-scaled.height + 25
             draw-stock( rest, new-x-pos, new-y-pos, new-row-idx )
 
       draw-stock( game-state.store, start-x, start-y, 0 )
