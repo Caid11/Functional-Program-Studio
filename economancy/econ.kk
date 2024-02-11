@@ -8,11 +8,12 @@ fun game-loop( gui-state : guiState, game-state : gameState )
       val new-gui-state = gui-state.show-income-results( game-state, player-incomes )
       game-loop( new-gui-state, new-game-state )
     Invest ->
-      val (invest-gui-state, alice-invest) = gui-state.get-investment( game-state, "Alice" )
-      val investments = [alice-invest, 0, 0, 0]
+      val (alice-invest-gui-state, alice-invest) = gui-state.get-investment( game-state, "Alice" )
+      val (bob-invest-gui-state, bob-invest) = alice-invest-gui-state.get-investment( game-state, "Bob" )
+      val investments = [alice-invest, bob-invest, 0, 0]
 
       val (new-game-state, invest-results) = game-state.resolve-invest( investments )
-      val new-gui-state = invest-gui-state.show-invest-results( game-state, invest-results )
+      val new-gui-state = bob-invest-gui-state.show-invest-results( game-state, invest-results )
 
       game-loop( new-gui-state, new-game-state )
     Attack ->
