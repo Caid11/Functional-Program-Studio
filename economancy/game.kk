@@ -24,12 +24,61 @@ pub fun day/str( d : day )
 
 pub type cardType
   SorcerersStipend
+  Apprentice
+  BoardOfMonopoly
+  Bubble
+  Ghost
+  GoldFish
+  Golem
+  Incantation
+  MagicBeanStock
+  SeniorWorker
+  ShieldOfGreed
+  Thug
+  WallOfWealth
   Worker
 
+// TODO: It feels like there should be something built in for this...
 pub fun cardType/cmp( x : cardType, y : cardType )
   match x
     SorcerersStipend -> match y
       SorcerersStipend -> True
+      _ -> False
+    Apprentice -> match y
+      Apprentice -> True
+      _ -> False
+    BoardOfMonopoly -> match y
+      BoardOfMonopoly -> True
+      _ -> False
+    Bubble -> match y
+      Bubble -> True
+      _ -> False
+    Ghost -> match y
+      Ghost -> True
+      _ -> False
+    GoldFish -> match y
+      GoldFish -> True
+      _ -> False
+    Golem -> match y
+      Golem -> True
+      _ -> False
+    Incantation -> match y
+      Incantation -> True
+      _ -> False
+    MagicBeanStock -> match y
+      MagicBeanStock -> True
+      _ -> False
+    SeniorWorker -> match y
+      SeniorWorker -> True
+      _ -> False
+    ShieldOfGreed -> match y
+      ShieldOfGreed -> True
+      _ -> False
+    Thug -> match y
+      Thug -> True
+      _ -> False
+    WallOfWealth -> match y
+      WallOfWealth -> True
       _ -> False
     Worker -> match y
       Worker -> True
@@ -60,8 +109,22 @@ pub fun get-init-state( player-inits : list<playerInitInfo> )
 
   val players = player-inits.map( init-player )
 
-  val worker-stock = Stock( Worker, 2 )
-  val store = [worker-stock]
+  // TODO: Set stock based on number of players
+  val store = [
+    Stock( Apprentice, 1 ),
+    Stock( BoardOfMonopoly, 1 ),
+    Stock( Bubble, 1 ),
+    Stock( Ghost, 1 ),
+    Stock( GoldFish, 1 ),
+    Stock( Golem, 1 ),
+    Stock( Incantation, 1 ),
+    Stock( MagicBeanStock, 1 ),
+    Stock( SeniorWorker, 1 ),
+    Stock( ShieldOfGreed, 1 ),
+    Stock( Thug, 1 ),
+    Stock( WallOfWealth, 1 ),
+    Stock( Worker, 1 ),
+  ]
 
   GameState( Income, One, store, players, Nothing )
 
@@ -129,3 +192,9 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
   val chosen = [Worker, Worker, Worker]
   val dummy-result = AttackResult( state.attacker.unjust, Worker, chosen, dummy-outcomes )
   (state( phase = Buy, attacker = Nothing ), dummy-result)
+
+pub struct buyResult
+  bleh : int
+
+pub fun resolve-buy( state : gameState, buy-cards : list<maybe<cardType>> ) : pure (gameState, buyResult)
+  (state, BuyResult(0))

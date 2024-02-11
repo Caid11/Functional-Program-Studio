@@ -23,21 +23,53 @@ struct examinedCard
   player : string
   idx : int
 
+pub struct mouseState
+  last-x : int
+  last-y : int
+  frames-since-move : int
+
 pub struct guiState
   mode : guiMode
   cards : list<cardInfo>
-  examined : maybe<examinedCard>
+  mouse : mouseState
   
 pub fun init-gui() : raylib-io guiState
   initWindow( windowWidth, windowHeight, "Economancy")
   guiSetStyle( guiControlDefault, guiControlPropertyTextSize, 16 * 4 )
   setTargetFPS( 60 )
 
-  val sorc_sti = CardInfo( SorcerersStipend, loadTexture( "assets/sorcerers_stipend.png" ) )
-  val worker = CardInfo( Worker, loadTexture( "assets/worker.png" ) )
-  val cards = [sorc_sti, worker]
+  val cards = [
+    CardInfo( SorcerersStipend, loadTexture( "assets/sorcerers_stipend.png" ) ),
+    CardInfo( Apprentice, loadTexture( "assets/apprentice.png" ) ),
+    CardInfo( BoardOfMonopoly, loadTexture( "assets/board_of_monopoly.png" ) ),
+    CardInfo( Bubble, loadTexture( "assets/bubble.png" ) ),
+    CardInfo( Ghost, loadTexture( "assets/ghost.png" ) ),
+    CardInfo( GoldFish, loadTexture( "assets/gold_fish.png" ) ),
+    CardInfo( Golem, loadTexture( "assets/golem.png" ) ),
+    CardInfo( Incantation, loadTexture( "assets/incantation.png" ) ),
+    CardInfo( MagicBeanStock, loadTexture( "assets/magic_bean_stock.png" ) ),
+    CardInfo( SeniorWorker, loadTexture( "assets/senior_worker.png" ) ),
+    CardInfo( ShieldOfGreed, loadTexture( "assets/shield_of_greed.png" ) ),
+    CardInfo( Thug, loadTexture( "assets/thug.png" ) ),
+    CardInfo( WallOfWealth, loadTexture( "assets/wall_of_wealth.png" ) ),
+    CardInfo( Worker, loadTexture( "assets/worker.png" ) ),
+  ]
 
-  GuiState( MainMenu, cards, Nothing )
+  GuiState( MainMenu, cards, MouseState( 0, 0, 0 ) )
+
+fun update-mouse( gui-state : guiState ) : raylib-io mouseState
+  val curr-mouse-pos = getMousePosition()
+  val curr-x = curr-mouse-pos.x.float64.int
+  val curr-y = curr-mouse-pos.y.float64.int
+
+  val prev = gui-state.mouse
+
+  if curr-x == prev.last-x && curr-y == prev.last-y then
+    prev( frames-since-move = prev.frames-since-move + 1 )
+  else
+    MouseState( curr-x, curr-y, 0 )
+
+val mouse-over-frames = int(60.0 * 0.5)
 
 fun draw-phase( game-phase : phase ) : raylib-io ()
   val phase-text-width = raylib-MeasureText( game-phase.str, 44 )
@@ -107,9 +139,33 @@ fun coin-text( coins : int, income : maybe<int> ) : <> string
       val sign-str = if i > 0 then "+" else ""
       coin-str ++ " (" ++ sign-str ++ i.show ++ ")"
 
+pub struct bounds
+  x : int
+  y : int
+  width : int
+  height : int
+
+fun draw-card( gui-state : guiState,
+               card : cardType,
+               x-pos : int,
+               y-pos : int,
+               tgt-width : int,
+               highlight-color : color ) : raylib-io bounds
+  val scale-factor = tgt-width.float64 / gui-state.card-width
+  val tgt-height = int( gui-state.card-height * scale-factor )
+
+  val pos = Vector2( x-pos.float32, y-pos.float32 )
+  drawTextureEx( get-card-tex( gui-state, card ), pos, float32(0.0), scale-factor.float32, highlight-color )
+
+  Bounds( x-pos, y-pos, tgt-width, tgt-height)
+
+struct cardBounds
+  b : bounds
+  t : cardType
+
 struct playerStackInfo
   name : string
-  bounds : rectangle
+  bounds : list<cardBounds>
 
 fun draw-player( gui-state : guiState,
                  loc : playerLoc,
@@ -119,6 +175,7 @@ fun draw-player( gui-state : guiState,
   val name-font-size = 36
   val coins-font-size = 36
 
+  // TODO: Very duplicated
   val card-tgt-width = 100
   val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
   val card-tgt-height = int( gui-state.card-height * card-scale-factor )
@@ -141,20 +198,19 @@ fun draw-player( gui-state : guiState,
 
   drawText( player.name, name-x, name-y, name-font-size, darkgray )
 
-  player.cards.zip( stack-xs ).map-indexed( fn( i, (c, x) ){
-    val pos = Vector2( x.float32, stack-y.float32 )
+  val card-bounds = player.cards.zip( stack-xs ).map-indexed( fn( i, (c, x) ){
     val highlight-color = match examined-card
       Nothing -> white
       Just( ExaminedCard( player-name, idx ) ) ->
         if player-name == player.name && i == idx then yellow
         else white
 
-    drawTextureEx( get-card-tex( gui-state, c ), pos, float32(0.0), card-scale-factor.float32, highlight-color ) })
+    val bounds = gui-state.draw-card( c, x, stack-y, card-tgt-width, highlight-color )
+    CardBounds( bounds, c ) })
 
   drawText( coins-text, coins-x, coins-y, coins-font-size, darkgray )
 
-  val stackBounds = Rectangle(stack-xs.head.unjust.float32, stack-y.float32, stack-width.float32, card-tgt-height.float32)
-  PlayerStackInfo( player.name, stackBounds )
+  PlayerStackInfo( player.name, card-bounds.reverse )
 
 fun draw-players( gui-state : guiState,
                   players : list<player>,
@@ -199,6 +255,14 @@ pub fun get-player-info( gui-state : guiState ) : <raylib-io, guiExit> list<play
         get-player-info-r()
 
   get-player-info-r()
+
+fun is-over( r : bounds, x-pos : int, y-pos : int ) : <> bool
+  val left = r.x
+  val right = r.x + r.width
+  val top = r.y
+  val bottom = r.y + r.height
+
+  x-pos >= left && x-pos <= right && y-pos >= top && y-pos <= bottom
 
 fun is-clicked( r : rectangle, p : vector2 ) : <> bool
   val left = r.x.float64
@@ -258,14 +322,14 @@ fun card-chooser( gui-state : guiState,
 
   new-card-idx
 
-fun get-examined-card( gui-state : guiState, game-state : gameState, card-stacks : list<playerStackInfo> )
-    if isMouseButtonPressed( mouseButtonLeft ) then
-      val mousePos = getMousePosition()
-      val clicked = card-stacks.filter( fn(s){ s.bounds.is-clicked( mousePos ) } )
-      match clicked.head
-        Just( p ) -> Just( ExaminedCard( p.name, 0 ) )
-        _ -> gui-state.examined
-    else gui-state.examined
+// fun get-examined-card( gui-state : guiState, game-state : gameState, card-stacks : list<playerStackInfo> )
+//     if isMouseButtonPressed( mouseButtonLeft ) then
+//       val mousePos = getMousePosition()
+//       val clicked = card-stacks.filter( fn(s){ s.bounds.is-clicked( mousePos ) } )
+//       match clicked.head
+//         Just( p ) -> Just( ExaminedCard( p.name, 0 ) )
+//         _ -> gui-state.examined
+//     else gui-state.examined
 
 fun get-player( game-state : gameState, player-name : string )
   game-state.players.find( fn( p ){ p.name == player-name }).unjust
@@ -274,23 +338,23 @@ fun get-player-card( game-state : gameState, player-name : string, card-idx : in
   game-state.get-player( player-name ).cards[card-idx].unjust
 
 // TODO: This draws the examine card AND potentially switches it. Refactor.
-fun draw-examined-card( gui-state : guiState, game-state : gameState, card : maybe<examinedCard> )
-  match card
-    Nothing -> Nothing
-    Just( ExaminedCard( player-name, card-idx ) ) ->
-      val examine-center-x = 300
-      val examine-center-y = windowHeight - 250
-      val examine-card-width = 300
-
-      val possible-cards = game-state.get-player( player-name ).cards
-
-      val new-card-idx = gui-state.card-chooser( possible-cards,
-                                                 card-idx,
-                                                 examine-center-x,
-                                                 examine-center-y,
-                                                 examine-card-width )
-
-      Just( ExaminedCard( player-name, new-card-idx ) )
+// fun draw-examined-card( gui-state : guiState, game-state : gameState, card : maybe<examinedCard> )
+//   match card
+//     Nothing -> Nothing
+//     Just( ExaminedCard( player-name, card-idx ) ) ->
+//       val examine-center-x = 300
+//       val examine-center-y = windowHeight - 250
+//       val examine-card-width = 300
+// 
+//       val possible-cards = game-state.get-player( player-name ).cards
+// 
+//       val new-card-idx = gui-state.card-chooser( possible-cards,
+//                                                  card-idx,
+//                                                  examine-center-x,
+//                                                  examine-center-y,
+//                                                  examine-card-width )
+// 
+//       Just( ExaminedCard( player-name, new-card-idx ) )
 
 fun next-btn() : raylib-io bool
   val btn-width : float64 = 300.0
@@ -303,8 +367,22 @@ fun next-btn() : raylib-io bool
 
   guiButton( btn-pos, "Next" )
 
+fun draw-mouse-over( gui-state : guiState, card : cardType, x-pos : int, y-pos : int ) : raylib-io ()
+  // TODO: DUPLICATED
+  val card-tgt-width = 300
+  val scale-factor = card-tgt-width.float64 / gui-state.card-width
+  val tgt-height = int( gui-state.card-height * scale-factor )
+
+  val card-x = if x-pos > windowWidth / 2 then x-pos - card-tgt-width else x-pos
+  val card-y = if y-pos > windowHeight / 2 then y-pos - tgt-height else y-pos
+
+  gui-state.draw-card( card, card-x, card-y, card-tgt-width, white)
+  ()
+
 pub fun show-income-results( init-gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> guiState
   fun show-income-results-r( gui-state : guiState )
+    val new-mouse-state = gui-state.update-mouse()
+
     if windowShouldClose() then exit()
     else
       clearBackground( raywhite )
@@ -315,16 +393,45 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
       draw-day( game-state.day )
     
       // Draw player cards and examined card
-      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined, Just( player-incomes ) )
-      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
-      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
+
+      // Check if the player is hovering over a card.
+      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+
+      fun find-player-stack-mouse-over( s : list<playerStackInfo> )
+        fun find-card-mouse-over( c : list<cardBounds> )
+          match c
+            Nil -> Nothing
+            Cons( x, xs ) -> 
+              if is-over( x.b, new-mouse-state.last-x, new-mouse-state.last-y ) then
+                Just( x.t )
+              else find-card-mouse-over( xs )
+
+        match s
+          Nil -> Nothing
+          Cons( x, xs ) ->
+            match find-card-mouse-over( x.bounds )
+              Just( card ) -> Just( card )
+              Nothing ->
+                find-player-stack-mouse-over( xs )
+
+      // If the mouse is over a card and has been for some time, show zoomed card
+      if new-mouse-state.frames-since-move >= mouse-over-frames then
+        val mouse-over-card : maybe<cardType> = find-player-stack-mouse-over( player-stacks )
+        match mouse-over-card
+          Nothing -> ()
+          Just( card ) ->
+            gui-state.draw-mouse-over( card, new-mouse-state.last-x, new-mouse-state.last-y )
+      else ()
 
       val next-clicked = next-btn()
 
       endDrawing()
 
-      if next-clicked then gui-state( examined = examined-card )
-      else show-income-results-r( gui-state( examined = new-examined-card ) )
+      val new-gui-state = gui-state( mouse = new-mouse-state )
+      if next-clicked then new-gui-state
+      else show-income-results-r( new-gui-state )
 
   show-income-results-r( init-gui-state )
       
@@ -377,9 +484,9 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
       draw-day( game-state.day )
     
       // Draw player cards and examined card
-      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined )
-      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
-      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing )
+      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
 
       // Draw invest controls
       val down-clicked = guiButton( adjust-down-pos, "-" )
@@ -395,7 +502,7 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
 
       endDrawing()
 
-      val new-gui-state = gui-state( examined = new-examined-card )
+      val new-gui-state = gui-state
       if invest-clicked then (new-gui-state, curr-invest)
       else get-investment-r( new-gui-state, new-invest )
 
@@ -415,9 +522,9 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
       val player-incomes = invest-result.investments.map( fn( invest ){ invest * -1 } )
     
       // Draw player cards and examined card
-      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined, Just( player-incomes ) )
-      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
-      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
+      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
 
       // Draw invest winner (or indicate that no one one)
       val winner-text = match invest-result.winner-name
@@ -441,8 +548,8 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
 
       endDrawing()
 
-      if next-clicked then gui-state( examined = examined-card )
-      else show-invest-results-r( gui-state( examined = new-examined-card ) )
+      if next-clicked then gui-state
+      else show-invest-results-r( gui-state )
 
   show-invest-results-r( init-gui-state )
 
@@ -487,9 +594,9 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
       draw-day( game-state.day )
     
       // Draw player cards and examined card
-      val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined )
-      val examined-card = gui-state.get-examined-card( game-state, player-stacks )
-      val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing )
+      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
 
       drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
 
@@ -507,7 +614,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
 
       endDrawing()
 
-      val new-gui-state = gui-state( examined = examined-card )
+      val new-gui-state = gui-state
 
       if pass-clicked then (new-gui-state, Nothing)
       else if choose-clicked then (new-gui-state, Just( curr-card-idx ))
@@ -547,13 +654,6 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
       // Draw phase and day
       draw-phase( game-state.phase )
       draw-day( game-state.day )
-
-      // Draw player cards and examined card
-      // val player-stacks = gui-state.draw-players( game-state.players, gui-state.examined )
-      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
-      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
-
-      // TODO: We'll need to reset the examined card if it has fainted
 
       val choice-width = 175
       val center-y = windowHeight / 2
@@ -605,3 +705,59 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
       else show-attack-results-r( gui-state )
 
   show-attack-results-r( init-gui-state )
+
+pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, maybe<cardType>)
+  val center-x = windowWidth / 2
+  val center-y = windowHeight / 2
+
+  fun get-buy-card-r( gui-state : guiState, curr-card-idx : int )
+    if windowShouldClose() then exit()
+    else
+      clearBackground( raywhite )
+      beginDrawing()
+
+      // Draw phase and day
+      draw-phase( game-state.phase )
+      draw-day( game-state.day )
+    
+      // Draw player cards and examined card
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing )
+      // val examined-card = gui-state.get-examined-card( game-state, player-stacks )
+      // val new-examined-card = gui-state.draw-examined-card( game-state, examined-card )
+
+      // Draw store cards
+
+      // TODO: This is all over the place. Pull it into a function
+      val card-tgt-width = 150
+      val card-scale-factor = card-tgt-width.float64 / gui-state.card-width
+      val card-tgt-height = int( gui-state.card-height * card-scale-factor )
+
+      val start-x = 300
+      val start-y = 250
+
+      val num-cards-in-row = 7
+
+      fun draw-stock( s : list<stock>, x-pos : int, y-pos : int, row-idx : int )
+        val pos = Vector2( x-pos.float32, y-pos.float32 )
+        match s
+          Nil -> ()
+          Cons( Stock( card, num ), rest ) ->
+            drawTextureEx( get-card-tex( gui-state, card ), pos, float32(0.0), card-scale-factor.float32, white )
+
+            val new-row-idx = (row-idx + 1) % num-cards-in-row
+            val new-x-pos = if new-row-idx > row-idx then x-pos + card-tgt-width + 10 else start-x
+            val new-y-pos = if new-row-idx > row-idx then y-pos else y-pos + card-tgt-height + 25
+            draw-stock( rest, new-x-pos, new-y-pos, new-row-idx )
+
+      draw-stock( game-state.store, start-x, start-y, 0 )
+
+      endDrawing()
+
+      val new-gui-state = gui-state
+
+      get-buy-card-r( new-gui-state, curr-card-idx )
+      // if pass-clicked then (new-gui-state, Nothing)
+      // else if choose-clicked then (new-gui-state, Just( curr-card-idx ))
+      // else get-attack-card-r( new-gui-state, new-card-idx )
+
+  get-buy-card-r( init-gui-state, 0 )
