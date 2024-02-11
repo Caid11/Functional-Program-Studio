@@ -257,7 +257,7 @@ pub fun get-player-info( gui-state : guiState ) : <raylib-io, guiExit> list<play
       endDrawing()
 
       if start-clicked then 
-        [PlayerInitInfo("Alice"), PlayerInitInfo("Bob"), PlayerInitInfo("Charlie"), PlayerInitInfo("Diane")]
+        [PlayerInitInfo("Alice", Human), PlayerInitInfo("Bob", Human), PlayerInitInfo("Charlie", Cpu), PlayerInitInfo("Diane", Cpu)]
       else
         get-player-info-r()
 

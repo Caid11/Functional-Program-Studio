@@ -1,12 +1,12 @@
 import game
 import gui
 
-fun game-loop( gui-state : guiState, game-state : gameState )
+fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-state : gameState )
   match game-state.phase
     Income ->
       val (new-game-state, player-incomes) = game-state.resolve-income()
       val new-gui-state = gui-state.show-income-results( game-state, player-incomes )
-      game-loop( new-gui-state, new-game-state )
+      game-loop( player-info, new-gui-state, new-game-state )
     Invest ->
       val (alice-invest-gui-state, alice-invest) = gui-state.get-investment( game-state, "Alice" )
       val (bob-invest-gui-state, bob-invest) = alice-invest-gui-state.get-investment( game-state, "Bob" )
@@ -15,7 +15,7 @@ fun game-loop( gui-state : guiState, game-state : gameState )
       val (new-game-state, invest-results) = game-state.resolve-invest( investments )
       val new-gui-state = bob-invest-gui-state.show-invest-results( game-state, invest-results )
 
-      game-loop( new-gui-state, new-game-state )
+      game-loop( player-info, new-gui-state, new-game-state )
     Attack ->
       val (attack-gui-state, alice-card) = gui-state.get-attack-card( game-state, "Alice" )
       val cards = [alice-card, Nothing, Nothing, Nothing]
@@ -23,7 +23,7 @@ fun game-loop( gui-state : guiState, game-state : gameState )
       val (new-game-state, attack-results) = game-state.resolve-attack( cards )
       val new-gui-state = attack-gui-state.show-attack-results( game-state, attack-results )
 
-      game-loop( new-gui-state, new-game-state )
+      game-loop( player-info, new-gui-state, new-game-state )
     Buy ->
       val (buy-gui-state, alice-card) = gui-state.get-buy-card( game-state, "Alice" )
       val cards = [alice-card, Just( Worker ), Just( Worker ), Nothing]
@@ -31,7 +31,7 @@ fun game-loop( gui-state : guiState, game-state : gameState )
       val (new-game-state, buy-results) = game-state.resolve-buy( cards )
       val new-gui-state = buy-gui-state.show-buy-results( game-state, buy-results )
 
-      game-loop( new-gui-state, new-game-state )
+      game-loop( player-info, new-gui-state, new-game-state )
 
 
 fun main()
@@ -44,4 +44,4 @@ fun main()
   val player-info = gui-state.get-player-info()
   val game-state = get-init-state( player-info )
 
-  game-loop( gui-state, game-state )
+  game-loop( player-info, gui-state, game-state )

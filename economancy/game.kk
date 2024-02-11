@@ -100,8 +100,13 @@ pub struct gameState
   players : list<player>
   attacker : maybe<string>
 
+type playerType
+  Human
+  Cpu
+
 pub struct playerInitInfo
   name : string
+  ty : playerType
 
 pub fun get-init-state( player-inits : list<playerInitInfo> )
   fun init-player( p : playerInitInfo )
