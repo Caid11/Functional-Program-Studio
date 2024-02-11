@@ -111,19 +111,19 @@ pub fun get-init-state( player-inits : list<playerInitInfo> )
 
   // TODO: Set stock based on number of players
   val store = [
-    Stock( Apprentice, 1 ),
-    Stock( BoardOfMonopoly, 1 ),
-    Stock( Bubble, 1 ),
-    Stock( Ghost, 1 ),
-    Stock( GoldFish, 1 ),
-    Stock( Golem, 1 ),
-    Stock( Incantation, 1 ),
-    Stock( MagicBeanStock, 1 ),
-    Stock( SeniorWorker, 1 ),
-    Stock( ShieldOfGreed, 1 ),
-    Stock( Thug, 1 ),
-    Stock( WallOfWealth, 1 ),
-    Stock( Worker, 1 ),
+    Stock( Apprentice, 3 ),
+    Stock( BoardOfMonopoly, 3 ),
+    Stock( Bubble, 3 ),
+    Stock( Ghost, 3 ),
+    Stock( GoldFish, 3 ),
+    Stock( Golem, 3 ),
+    Stock( Incantation, 3 ),
+    Stock( MagicBeanStock, 3 ),
+    Stock( SeniorWorker, 3 ),
+    Stock( ShieldOfGreed, 3 ),
+    Stock( Thug, 3 ),
+    Stock( WallOfWealth, 3 ),
+    Stock( Worker, 3 ),
   ]
 
   GameState( Income, One, store, players, Nothing )
@@ -194,7 +194,13 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
   (state( phase = Buy, attacker = Nothing ), dummy-result)
 
 pub struct buyResult
-  bleh : int
+  cards : list<maybe<cardType>>
+  purchase-conflict : list<bool>
+  purchase-amts : list<int>
 
 pub fun resolve-buy( state : gameState, buy-cards : list<maybe<cardType>> ) : pure (gameState, buyResult)
-  (state, BuyResult(0))
+  val dummy-cards = [Just(Worker), Just(Apprentice), Nothing, Just(Apprentice)]
+  val dummy-conflict = [False, True, False, True]
+  val dummy-amts = [2, 3, 0, 3]
+  val dummy-result = BuyResult( dummy-cards, dummy-conflict, dummy-amts )
+  (state, dummy-result)

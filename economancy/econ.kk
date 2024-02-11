@@ -24,14 +24,13 @@ fun game-loop( gui-state : guiState, game-state : gameState )
 
       game-loop( new-gui-state, new-game-state )
     Buy ->
-      // TODO: card -> choice
       val (buy-gui-state, alice-card) = gui-state.get-buy-card( game-state, "Alice" )
       val cards = [alice-card, Just( Worker ), Just( Worker ), Nothing]
 
       val (new-game-state, buy-results) = game-state.resolve-buy( cards )
-      // val new-gui-state = buy-gui-state.show-buy-results( game-state, buy-results )
+      val new-gui-state = buy-gui-state.show-buy-results( game-state, buy-results )
 
-      game-loop( gui-state, new-game-state )
+      game-loop( new-gui-state, new-game-state )
 
 
 fun main()
