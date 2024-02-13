@@ -1,6 +1,54 @@
+import cpu-player
 import game
 import gui
+import raylib/raylib
 
+fun get-invests( players : list<playerInitInfo>,
+                 game-state : gameState,
+                 gui-state : guiState,
+                 curr-invests : list<int> ) : <guiExit, raylib-io> (guiState, list<int>)
+  match players
+    Nil -> (gui-state, curr-invests)
+    Cons( p, ps ) ->
+      match p.ty
+        Cpu ->
+          val i = get-invest( game-state, p.name )
+          get-invests( ps, game-state, gui-state, curr-invests ++ [i] )
+        Human ->
+          val (new-gui-state, i) = gui-state.get-investment( game-state, p.name )
+          get-invests( ps, game-state, new-gui-state, curr-invests ++ [i] )
+
+fun get-attacks( players : list<playerInitInfo>,
+                 game-state : gameState,
+                 gui-state : guiState,
+                 curr-attacks : list<maybe<int>> ) : <guiExit, raylib-io> (guiState, list<maybe<int>>)
+  match players
+    Nil -> (gui-state, curr-attacks)
+    Cons( p, ps ) ->
+      match p.ty
+        Cpu ->
+          val i = get-attack( game-state, p.name )
+          get-attacks( ps, game-state, gui-state, curr-attacks ++ [i] )
+        Human ->
+          val (new-gui-state, i) = gui-state.get-attack-card( game-state, p.name )
+          get-attacks( ps, game-state, new-gui-state, curr-attacks ++ [i] )
+
+fun get-buys( players : list<playerInitInfo>,
+              game-state : gameState,
+              gui-state : guiState,
+              curr-buys : list<maybe<cardType>> ) : <guiExit, raylib-io> (guiState, list<maybe<cardType>>)
+  match players
+    Nil -> (gui-state, curr-buys)
+    Cons( p, ps ) ->
+      match p.ty
+        Cpu ->
+          val i = get-buy( game-state, p.name )
+          get-buys( ps, game-state, gui-state, curr-buys ++ [i] )
+        Human ->
+          val (new-gui-state, i) = gui-state.get-buy-card( game-state, p.name )
+          get-buys( ps, game-state, new-gui-state, curr-buys ++ [i] )
+
+// TODO: Maybe register handlers for getting player input?
 fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-state : gameState )
   match game-state.phase
     Income ->
@@ -8,31 +56,23 @@ fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-st
       val new-gui-state = gui-state.show-income-results( game-state, player-incomes )
       game-loop( player-info, new-gui-state, new-game-state )
     Invest ->
-      val (alice-invest-gui-state, alice-invest) = gui-state.get-investment( game-state, "Alice" )
-      val (bob-invest-gui-state, bob-invest) = alice-invest-gui-state.get-investment( game-state, "Bob" )
-      val investments = [alice-invest, bob-invest, 0, 0]
-
+      val (invest-gui-state, investments) = get-invests( player-info, game-state, gui-state, [])
       val (new-game-state, invest-results) = game-state.resolve-invest( investments )
-      val new-gui-state = bob-invest-gui-state.show-invest-results( game-state, invest-results )
+      val result-gui-state = invest-gui-state.show-invest-results( game-state, invest-results )
 
-      game-loop( player-info, new-gui-state, new-game-state )
+      game-loop( player-info, result-gui-state, new-game-state )
     Attack ->
-      val (attack-gui-state, alice-card) = gui-state.get-attack-card( game-state, "Alice" )
-      val cards = [alice-card, Nothing, Nothing, Nothing]
+      val (attack-gui-state, attack-cards) = get-attacks( player-info, game-state, gui-state, [] )
+      val (new-game-state, attack-results) = game-state.resolve-attack( attack-cards )
+      val result-gui-state = attack-gui-state.show-attack-results( game-state, attack-results )
 
-      val (new-game-state, attack-results) = game-state.resolve-attack( cards )
-      val new-gui-state = attack-gui-state.show-attack-results( game-state, attack-results )
-
-      game-loop( player-info, new-gui-state, new-game-state )
+      game-loop( player-info, result-gui-state, new-game-state )
     Buy ->
-      val (buy-gui-state, alice-card) = gui-state.get-buy-card( game-state, "Alice" )
-      val cards = [alice-card, Just( Worker ), Just( Worker ), Nothing]
+      val (buy-gui-state, buy-cards) = get-buys( player-info, game-state, gui-state, [] )
+      val (new-game-state, buy-results) = game-state.resolve-buy( buy-cards )
+      val result-gui-state = buy-gui-state.show-buy-results( game-state, buy-results )
 
-      val (new-game-state, buy-results) = game-state.resolve-buy( cards )
-      val new-gui-state = buy-gui-state.show-buy-results( game-state, buy-results )
-
-      game-loop( player-info, new-gui-state, new-game-state )
-
+      game-loop( player-info, result-gui-state, new-game-state )
 
 fun main()
   val gui-state = init-gui()
