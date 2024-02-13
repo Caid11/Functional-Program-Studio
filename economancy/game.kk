@@ -84,14 +84,23 @@ pub fun cardType/cmp( x : cardType, y : cardType )
       Worker -> True
       _ -> False
 
+fun get-card-stats( ty : cardType ) : pure (int, int)
+  (1,1) // TODO: Implement
+
 pub struct stock
   card : cardType
   remaining : int
 
+pub struct playerCard
+  ty : cardType
+  attacks : int
+  defends : int
+  
 pub struct player
   name : string
   coins : int
-  cards : list<cardType>
+  buys : int
+  cards : list<playerCard>
 
 pub struct gameState
   phase : phase
@@ -108,51 +117,100 @@ pub struct playerInitInfo
   name : string
   ty : playerType
 
-pub fun get-init-state( player-inits : list<playerInitInfo> )
-  fun init-player( p : playerInitInfo )
-    Player(p.name, 0, [SorcerersStipend, Worker])
-
-  val players = player-inits.map( init-player )
-
-  // TODO: Set stock based on number of players
-  val store = [
-    Stock( Apprentice, 3 ),
-    Stock( BoardOfMonopoly, 3 ),
-    Stock( Bubble, 3 ),
-    Stock( Ghost, 3 ),
-    Stock( GoldFish, 3 ),
-    Stock( Golem, 3 ),
-    Stock( Incantation, 3 ),
-    Stock( MagicBeanStock, 3 ),
-    Stock( SeniorWorker, 3 ),
-    Stock( ShieldOfGreed, 3 ),
-    Stock( Thug, 3 ),
-    Stock( WallOfWealth, 3 ),
-    Stock( Worker, 3 ),
+fun get-init-stock( num-players : int ) : pure list<stock>
+  [
+    Stock( Apprentice, num-players ),
+    Stock( BoardOfMonopoly, 2 * num-players ),
+    Stock( Bubble, num-players ),
+    Stock( Ghost, 2 * num-players ),
+    Stock( GoldFish, num-players ),
+    Stock( Golem, num-players ),
+    Stock( Incantation, 3 * num-players ),
+    Stock( MagicBeanStock, num-players ),
+    Stock( SeniorWorker, 2 * num-players ),
+    Stock( ShieldOfGreed, num-players ),
+    Stock( Thug, num-players ),
+    Stock( WallOfWealth, 2 * num-players ),
+    Stock( Worker, 2 * num-players ),
   ]
 
-  GameState( Income, One, store, players, Nothing )
+pub fun get-init-state( player-inits : list<playerInitInfo> )
+  fun init-player( p : playerInitInfo )
+    Player(p.name, 0, 0, [PlayerCard(SorcerersStipend, 0, 0), PlayerCard(Worker, 0, 0)])
 
-fun get-card-income( card : cardType, d : day )
+  val players = player-inits.map( init-player )
+  val stock = get-init-stock( player-inits.length )
+  GameState( Income, One, stock, players, Nothing )
+
+fun get-card-income( player-coins : int, card : cardType, d : day )
   match card 
     SorcerersStipend ->
       match d
         One -> 2
         _ -> 1
+    Apprentice ->
+      match d
+        One -> 1
+        Two -> 1
+        _ -> 0
+    BoardOfMonopoly -> 0
+    Bubble -> 0
+    Ghost ->
+      match d
+        One -> 1
+        _ -> 0
+    GoldFish ->
+      match d
+        Three -> 4
+        _ -> 0
+    Golem -> 0
+    Incantation -> 0
+    MagicBeanStock -> player-coins / 3
+    SeniorWorker -> 1
+    ShieldOfGreed -> 0
+    Thug ->
+      match d
+        Two -> 1
+        _ -> 0
+    WallOfWealth ->
+      match d
+        One -> 1
+        _ -> 0
     Worker ->
       match d
         Two -> 1
         Three -> 1
         _ -> 0
 
-fun get-player-income( state : gameState, p : player )
-  val incomes = p.cards.map( fn(c){ get-card-income( c, state.day )})
-  val total-income = incomes.foldl( 0, fn(x,y){ x + y} )
-  total-income
+fun get-player-income( d : day, p : player, coins : int, cards : list<playerCard> ) : pure int
+  match cards
+    Nil -> coins
+    Cons( c, cs ) -> get-player-income( d, p, coins + get-card-income( coins, c.ty, d ), cs)
+
+fun get-card-buys( c : cardType, d : day ) : pure int
+  match c
+    Apprentice ->
+      match d
+        Three -> 1
+        _ -> 0
+    _ -> 0
+
+fun get-player-buys( d : day, p : player ) : pure int
+  val card-buys = p.cards.map( fn( c ){ get-card-buys( c.ty, d )}).sum
+  card-buys + 1
+
+fun get-card-attacks-defends( c : cardType ) : pure playerCard
+  match c
+    SorcerersStipend -> PlayerCard( c, 0, 0 )
+    Bubble -> PlayerCard( c, 0, 1 )
+    WallOfWealth -> PlayerCard( c, 1, 2 )
+    _ -> PlayerCard( c, 1, 1 )
 
 pub fun resolve-income( state : gameState ) : <pure> (gameState, list<int>)
-  val incomes = state.players.map( fn( p ){ get-player-income( state, p )} )
-  val new-players = zip( state.players, incomes ).map( fn( (p,i) ){ Player( p.player/name, p.coins + i, p.cards ) })
+  val incomes = state.players.map( fn( p ){ get-player-income( state.day, p, p.coins, p.cards )} )
+  val buys = state.players.map( fn( p ){ get-player-buys( state.day, p )})
+  val cards = state.players.map( fn( p ){ p.cards.map( fn( c ){ get-card-attacks-defends( c.ty ) })})
+  val new-players = state.players.zip( incomes ).zip( buys ).zip( cards ).map( fn( (((p,i),b),c) ){ p( coins = p.coins + i, buys = b, cards = c ) })
   val new-state = state( phase = Invest, players = new-players )
   (new-state, incomes)
 
@@ -179,24 +237,72 @@ pub fun resolve-invest( state : gameState, player-invests : list<int> ) : <pure>
       InvestResult( Just( winner-name ), player-invests ) )
 
 pub type attackOutcome
-  DrawNoFaint
-  DrawBothFaint
-  AttackerFainted
-  DefenderFainted
-  DefenderDefeated
+  Okay
+  Fainted
+  Defeated
+
+pub type attackRole
+  Attacker
+  Defender
 
 pub struct attackResult
-  attacker-name : string
-  attacker-card : cardType
-  defender-cards : list<cardType>
-  outcomes : list<attackOutcome>
+  player-name : string 
+  role : attackRole
+  card : maybe<cardType>
+  outcome : attackOutcome
   
-pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : pure (gameState, attackResult)
-  // TODO: Actually resolve attack phase
-  val dummy-outcomes = [DrawBothFaint, AttackerFainted, DefenderDefeated]
-  val chosen = [Worker, Worker, Worker]
-  val dummy-result = AttackResult( state.attacker.unjust, Worker, chosen, dummy-outcomes )
-  (state( phase = Buy, attacker = Nothing ), dummy-result)
+fun drop-idx( xs : list<a>, idx : int ) : pure list<a>
+  list(0, xs.length - 1).zip( xs ).filter( fn( (i,x) ){ i != idx } ).map( fn( (_,x) ){ x })
+
+fun resolve-outcome( x : maybe<cardType>, y : maybe<cardType> ) : pure attackOutcome
+  match y
+    Nothing -> Okay
+    Just( y-ty ) ->
+      // Player didn't supply a card and is defeated
+      match x
+        Nothing -> Defeated
+        Just( x-ty ) ->
+          val (_, x-defense) = x-ty.get-card-stats()
+          val (y-attack, _) = y-ty.get-card-stats()
+          if y-attack > x-defense then Fainted else Okay
+
+pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : pure (gameState, list<attackResult>)
+  val attacker-name = state.attacker.unjust
+  val attacker-idx = state.players.index-of( fn( p ){ p.name == attacker-name } )
+
+  fun get-choice-ty( idx )
+    match attack-cards[idx].unjust
+      Nothing -> Nothing
+      Just( i ) -> Just( state.players[idx].unjust.cards[i].unjust.ty )
+
+  val attacker-choice = get-choice-ty( attacker-idx )
+
+  fun resolve-outcomes( attacker-idx : int, curr-idx : int, outcomes : list<attackOutcome> )
+    if curr-idx >= attack-cards.length then outcomes
+    else if curr-idx == attacker-idx then
+      val defender-choices = list(0, attack-cards.length - 1).map( get-choice-ty ).drop-idx( attacker-idx )
+
+      val attacker-outcomes = defender-choices.map( fn( c ){ resolve-outcome( attacker-choice, c )})
+      val attacker-outcome = if attacker-outcomes.any( is-fainted ) then Fainted else Okay
+      resolve-outcomes( attacker-idx, curr-idx + 1, outcomes ++ [attacker-outcome])
+    else
+      val defender-choice = get-choice-ty( curr-idx )
+      val outcome = resolve-outcome( defender-choice, attacker-choice )
+      resolve-outcomes( attacker-idx, curr-idx + 1, outcomes ++ [outcome])
+
+  val outcomes = resolve-outcomes( attacker-idx, 0, [] )
+
+  fun get-role( p : player )
+    if p.name == attacker-name then Attacker
+    else Defender
+
+  // TODO: We can probably just do this once
+  val choices = list(0, attack-cards.length - 1).map( get-choice-ty )
+  val results = state.players.zip( choices ).zip( outcomes ).map( fn( ((p,c),o) ){ AttackResult(p.name, get-role( p ), c, o)} )
+  (state( phase = Buy ), results)
+
+  // Remove defeated players
+  // Set phase based on remaining attack cards (or pass)
 
 pub struct buyResult
   cards : list<maybe<cardType>>
