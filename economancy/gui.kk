@@ -715,103 +715,105 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
   show-attack-results-r( init-gui-state )
 
 pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, maybe<cardType>)
-  val center-x = windowWidth / 2
-  val center-y = windowHeight / 2
+  if game-state.get-player( player-name ).buys == 0 then (init-gui-state, Nothing)
+  else
+    val center-x = windowWidth / 2
+    val center-y = windowHeight / 2
 
-  // TODO: Duplicated from get-attack
-  val btn-width = 300.0
-  val btn-height = 150.0
+    // TODO: Duplicated from get-attack
+    val btn-width = 300.0
+    val btn-height = 150.0
 
-  val btn-x : float64 = windowWidth.float64 - btn-width - 25.0
+    val btn-x : float64 = windowWidth.float64 - btn-width - 25.0
 
-  val pass-btn-y : float64 = windowHeight.float64 - btn-height - 25.0
-  val choose-btn-y : float64 = pass-btn-y - 25.0 - btn-height
+    val pass-btn-y : float64 = windowHeight.float64 - btn-height - 25.0
+    val choose-btn-y : float64 = pass-btn-y - 25.0 - btn-height
 
-  val pass-btn-pos = Rectangle( btn-x.float32, pass-btn-y.float32, btn-width.float32, btn-height.float32 )
-  val choose-btn-pos = Rectangle( btn-x.float32, choose-btn-y.float32, btn-width.float32, btn-height.float32 )
+    val pass-btn-pos = Rectangle( btn-x.float32, pass-btn-y.float32, btn-width.float32, btn-height.float32 )
+    val choose-btn-pos = Rectangle( btn-x.float32, choose-btn-y.float32, btn-width.float32, btn-height.float32 )
 
-  fun get-buy-card-r( prev-gui-state : guiState, curr-card : maybe<cardType> )
-    if windowShouldClose() then exit()
-    else
-      val gui-state = prev-gui-state.update-mouse()
+    fun get-buy-card-r( prev-gui-state : guiState, curr-card : maybe<cardType> )
+      if windowShouldClose() then exit()
+      else
+        val gui-state = prev-gui-state.update-mouse()
 
-      clearBackground( raywhite )
-      beginDrawing()
+        clearBackground( raywhite )
+        beginDrawing()
 
-      // Draw phase and day
-      draw-phase( game-state.phase )
-      draw-day( game-state.day )
-    
-      // Draw player cards and examined card
-      val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
-      val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
+        // Draw phase and day
+        draw-phase( game-state.phase )
+        draw-day( game-state.day )
+      
+        // Draw player cards and examined card
+        val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
+        val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
-      // Draw store cards
+        // Draw store cards
 
-      val card-scaled = gui-state.scale-card( 150 )
+        val card-scaled = gui-state.scale-card( 160 )
 
-      val start-x = 300
-      val start-y = 250
-      val padding = 20
+        val start-x = 300
+        val start-y = 250
+        val padding = 20
 
-      val num-cards-in-row = 7
+        val num-cards-in-row = 7
 
-      fun draw-stock( s : list<stock>, x-pos : int, y-pos : int, row-idx : int, bounds : list<cardBounds> )
-        match s
-          Nil -> bounds
-          Cons( Stock( card, num ), rest ) ->
-            val highlight-color = match curr-card
-              Nothing -> white
-              Just( ty ) -> if game/cardType/cmp(ty, card) then yellow else white
+        fun draw-stock( s : list<stock>, x-pos : int, y-pos : int, row-idx : int, bounds : list<cardBounds> )
+          match s
+            Nil -> bounds
+            Cons( Stock( card, num ), rest ) ->
+              val highlight-color = match curr-card
+                Nothing -> white
+                Just( ty ) -> if game/cardType/cmp(ty, card) then yellow else white
 
-            val card-bounds = gui-state.draw-card( card, x-pos, y-pos, card-scaled.width, highlight-color )
+              val card-bounds = gui-state.draw-card( card, x-pos, y-pos, card-scaled.width, highlight-color )
 
-            val num-remaining-text = "Remaining: " ++ num.show
-            val num-remaining-height = 20
-            val num-remaining-width = measureText( num-remaining-text, num-remaining-height )
-            val stock-x = card-bounds.x + (card-bounds.width / 2) - (num-remaining-width / 2)
-            val stock-y = card-bounds.y + card-bounds.height + 10
-            drawText( num-remaining-text, stock-x, stock-y, num-remaining-height, darkgray )
+              val num-remaining-text = "Remaining: " ++ num.show
+              val num-remaining-height = 20
+              val num-remaining-width = measureText( num-remaining-text, num-remaining-height )
+              val stock-x = card-bounds.x + (card-bounds.width / 2) - (num-remaining-width / 2)
+              val stock-y = card-bounds.y + card-bounds.height + 10
+              drawText( num-remaining-text, stock-x, stock-y, num-remaining-height, darkgray )
 
-            val new-row-idx = (row-idx + 1) % num-cards-in-row
-            val new-x-pos = if new-row-idx > row-idx then x-pos + card-scaled.width + padding else start-x
-            val new-y-pos = if new-row-idx > row-idx then y-pos else stock-y + num-remaining-height + padding
+              val new-row-idx = (row-idx + 1) % num-cards-in-row
+              val new-x-pos = if new-row-idx > row-idx then x-pos + card-scaled.width + padding else start-x
+              val new-y-pos = if new-row-idx > row-idx then y-pos else stock-y + num-remaining-height + padding
 
-            val new-bounds = CardBounds( card-bounds, card )
-            draw-stock( rest, new-x-pos, new-y-pos, new-row-idx, bounds ++ [new-bounds] )
+              val new-bounds = CardBounds( card-bounds, card )
+              draw-stock( rest, new-x-pos, new-y-pos, new-row-idx, bounds ++ [new-bounds] )
 
-      val stock-bounds = draw-stock( game-state.store, start-x, start-y, 0, [] )
+        val stock-bounds = draw-stock( game-state.store, start-x, start-y, 0, [] )
 
-      val player-coins = game-state.players.find( fn(p){ p.name == player-name } ).unjust.coins
+        val player-coins = game-state.players.find( fn(p){ p.name == player-name } ).unjust.coins
 
-      val new-card = if isMouseButtonPressed( mouseButtonLeft ) then
-        val clicked-card = stock-bounds.find( fn(cb){ is-over( cb.b, gui-state.mouse.last-x, gui-state.mouse.last-y ) })
-        match clicked-card
-          Nothing -> curr-card
-          Just( CardBounds(_, ty ) ) ->
-            if game-state.store.get-stock-count( ty ) > 0 && ty.get-price <= player-coins then
-              Just( ty )
-            else curr-card
-      else curr-card
+        val new-card = if isMouseButtonPressed( mouseButtonLeft ) then
+          val clicked-card = stock-bounds.find( fn(cb){ is-over( cb.b, gui-state.mouse.last-x, gui-state.mouse.last-y ) })
+          match clicked-card
+            Nothing -> curr-card
+            Just( CardBounds(_, ty ) ) ->
+              if game-state.store.get-stock-count( ty ) > 0 && ty.get-price <= player-coins then
+                Just( ty )
+              else curr-card
+        else curr-card
 
-      val choose-clicked = guiButton( choose-btn-pos, "Choose" )
-      val pass-clicked = guiButton( pass-btn-pos, "Pass" )
+        val choose-clicked = guiButton( choose-btn-pos, "Choose" )
+        val pass-clicked = guiButton( pass-btn-pos, "Pass" )
 
-      val all-bounds = stack-bounds ++ stock-bounds
-      gui-state.hover-card( all-bounds )
+        val all-bounds = stack-bounds ++ stock-bounds
+        gui-state.hover-card( all-bounds )
 
-      endDrawing()
+        endDrawing()
 
-      val new-gui-state = gui-state
+        val new-gui-state = gui-state
 
-      // TODO: Don't allow clicking choose if no card selected
-      // TODO: Don't allow choosing cards with 0 stock.
+        // TODO: Don't allow clicking choose if no card selected
+        // TODO: Don't allow choosing cards with 0 stock.
 
-      if pass-clicked then (gui-state, curr-card)
-      else if choose-clicked then (new-gui-state, curr-card)
-      else get-buy-card-r( gui-state, new-card )
+        if pass-clicked then (gui-state, curr-card)
+        else if choose-clicked then (new-gui-state, curr-card)
+        else get-buy-card-r( gui-state, new-card )
 
-  get-buy-card-r( init-gui-state, Nothing )
+    get-buy-card-r( init-gui-state, Nothing )
 
 pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy-result : buyResult ) : <raylib-io, guiExit> guiState
   fun show-buy-results-r( prev-gui-state : guiState )
