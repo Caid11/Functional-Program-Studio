@@ -62,6 +62,7 @@ fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-st
 
       game-loop( player-info, result-gui-state, new-game-state )
     Attack ->
+      // TODO: Have attacker choose card first, highlight it when defenders are choosing their cards.
       val (attack-gui-state, attack-cards) = get-attacks( player-info, game-state, gui-state, [] )
       val (new-game-state, attack-results) = game-state.resolve-attack( attack-cards )
       val result-gui-state = attack-gui-state.show-attack-results( game-state, attack-results )
@@ -73,6 +74,8 @@ fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-st
       val result-gui-state = buy-gui-state.show-buy-results( game-state, buy-results )
 
       game-loop( player-info, result-gui-state, new-game-state )
+    Victory ->
+      gui-state.show-victory( game-state )
 
 fun main()
   val gui-state = init-gui()

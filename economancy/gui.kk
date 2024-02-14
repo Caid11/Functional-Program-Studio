@@ -1,8 +1,16 @@
 import std/num/float64
+import std/core/debug
 
 import raylib/raylib
 
 import game
+
+fun unjust( x : maybe<a>, line : string ) : exn a
+  match x
+    Just( y ) -> y
+    Nothing ->
+      val msg = "unexpected Nothing in unjust at " ++ line
+      throw(msg)
 
 pub type guiCommand
   Start
@@ -106,15 +114,15 @@ fun get-player-coords( loc : playerLoc )
     gui/Right -> (windowWidth - horiz-margin, center-vertical)
 
 fun card-width( gui-state : guiState ) : <exn> float64
-  val card = gui-state.cards.head.unjust
+  val card = gui-state.cards.head.gui/unjust( kk-line )
   card.tex.width.float64
 
 fun card-height( gui-state : guiState ) : <exn> float64
-  val card = gui-state.cards.head.unjust
+  val card = gui-state.cards.head.gui/unjust( kk-line )
   card.tex.height.float64
 
 fun get-card-tex( gui-state : guiState, c : cardType )
-  gui-state.cards.filter( fn(c-info){ game/cardType/cmp(c-info.ty, c) }).head.unjust.tex
+  gui-state.cards.filter( fn(c-info){ game/cardType/cmp(c-info.ty, c) }).head.gui/unjust( kk-line ).tex
 
 struct cardScaleInfo
   width : int
@@ -183,7 +191,8 @@ fun draw-player( gui-state : guiState,
                  loc : playerLoc,
                  player : player,
                  active-player : maybe<string>,
-                 income : maybe<int> = Nothing ) : <raylib-io> playerStackInfo
+                 income : maybe<int>,
+                 attacker : maybe<string> ) : <raylib-io> playerStackInfo
   val name-font-size = 36
   val coins-font-size = 36
 
@@ -214,7 +223,15 @@ fun draw-player( gui-state : guiState,
   drawText( player.name, name-x, name-y, name-font-size, name-color )
 
   val card-bounds = player.cards.zip( stack-xs ).map-indexed( fn( i, (c, x) ){
-    val bounds = gui-state.draw-card( c.ty, x, stack-y, card-scaled.width, white )
+    // Make card gray if tapped
+    val is-tapped = match attacker
+      Nothing -> False
+      Just( attacker-name ) ->
+        if attacker-name == player.name then c.attacks == 0
+        else c.defends == 0
+
+    val draw-color = if is-tapped then gray else white
+    val bounds = gui-state.draw-card( c.ty, x, stack-y, card-scaled.width, draw-color )
     CardBounds( bounds, c.ty ) })
 
   drawText( coins-text, coins-x, coins-y, coins-font-size, darkgray )
@@ -224,16 +241,18 @@ fun draw-player( gui-state : guiState,
 fun draw-players( gui-state : guiState,
                   players : list<player>,
                   active-player : maybe<string> = Nothing,
-                  maybe-incomes : maybe<list<int>> = Nothing ) : <raylib-io> list<playerStackInfo>
+                  maybe-incomes : maybe<list<int>> = Nothing,
+                  attacker : maybe<string> = Nothing ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
+
   match maybe-incomes
     Just( incomes ) ->
       val players-locs-incomes = zip( zip(players, player-locs), incomes )
-      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, active-player, Just( i ) )})
+      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, active-player, Just( i ), attacker )})
       player-stacks
     Nothing ->
       val players-locs = zip( players, player-locs )
-      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, active-player )})
+      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, active-player, Nothing, attacker )})
       player-stacks
 
 effect guiExit
@@ -311,7 +330,12 @@ fun card-chooser( gui-state : guiState,
   val card-pos = Vector2( float32(pos-x - center-offset-x + card-x),
                           float32(pos-y - card-offset-y))
 
-  val (card-ty,_) = possible-cards[card-idx].unjust
+  val possible-maybe = possible-cards[card-idx]
+  val card-ty = match possible-maybe
+    Just( (c,_) ) -> c
+    Nothing ->
+      println("Uh oh")
+      throw("uh oh")
   drawTextureEx( get-card-tex( gui-state, card-ty ), card-pos, float32(0.0), card-scaled.scale-factor.float32, white )
 
   val right-switch-rect = Rectangle( float32(pos-x - center-offset-x + switch-right-x), 
@@ -331,10 +355,10 @@ fun card-chooser( gui-state : guiState,
   new-card-idx
 
 fun get-player( game-state : gameState, player-name : string )
-  game-state.players.find( fn( p ){ p.name == player-name }).unjust
+  game-state.players.find( fn( p ){ p.name == player-name }).gui/unjust( kk-line )
 
 fun get-player-card( game-state : gameState, player-name : string, card-idx : int )
-  game-state.get-player( player-name ).cards[card-idx].unjust
+  game-state.get-player( player-name ).cards[card-idx].gui/unjust( kk-line )
 
 fun next-btn() : raylib-io bool
   val btn-width : float64 = 300.0
@@ -446,7 +470,7 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
+      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw invest controls
@@ -486,7 +510,7 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
       val player-incomes = invest-result.investments.map( fn( invest ){ invest * -1 } )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing, maybe-incomes = Just( player-incomes ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw invest winner (or indicate that no one one)
@@ -526,7 +550,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
   val center-x = windowWidth / 2
   val center-y = windowHeight / 2
 
-  val attacker-name = game-state.attacker.unjust
+  val attacker-name = game-state.attacker.gui/unjust( kk-line )
   val choose-text = if attacker-name == player-name then "Choose attacker" else "Choose defender"
   val choose-font-size = 60
 
@@ -536,7 +560,10 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
   val choose-text-y = 230
 
   val num-cards = game-state.get-player( player-name ).cards.length
-  val possible-cards = game-state.get-player( player-name ).cards.zip( list(0, num-cards - 1) ).filter( fn( (c,i) ){ c.attacks > 0 } ).map( fn( (c,i) ){ (c.ty,i) })
+  val possible-cards = game-state.get-player( player-name ).cards.zip( list(0, num-cards - 1) ).filter( fn( (c,i) ){ 
+    if attacker-name == player-name then c.attacks > 0
+    else c.defends > 0
+  } ).map( fn( (c,i) ){ (c.ty,i) })
 
   val btn-width = 300.0
   val btn-height = 150.0
@@ -562,13 +589,10 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, Just( player-name ) )
+      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = game-state.attacker )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
-
-      // TODO: Add effects (e.g. fainted, cannot attack, twice attack, etc.) to cards and only allow choosing if legal
-      // TODO: Highlight selected attack/defend card in red
 
       val (new-card-idx, choose-clicked) = if possible-cards.length > 0 then
         val new-card-idx = gui-state.card-chooser( possible-cards,
@@ -591,7 +615,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
 
       if pass-clicked then (new-gui-state, Nothing)
       else if choose-clicked then
-        val (_, idx) = possible-cards[curr-card-idx].unjust
+        val (_, idx) = possible-cards[curr-card-idx].gui/unjust( kk-line )
         (new-gui-state, Just( idx ))
       else get-attack-card-r( new-gui-state, new-card-idx )
 
@@ -599,7 +623,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
 
 pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, attack-results : list<attackResult>) : <raylib-io, guiExit> guiState
   fun draw-result( gui-state : guiState, result : attackResult, pos-x : int, pos-y : int, card-tgt-width : int )
-    val name-size = 30
+    val name-size = 44
     val player-text-width = measureText( result.player-name, name-size )
 
     val padding = 10
@@ -609,10 +633,9 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
     val total-height = [name-size, padding, card-scaled.height].sum
     val center-y-offset = total-height / 2
 
-    val name-x = pos-x - player-text-width / 2
+    val name-x = pos-x + card-tgt-width / 2 - player-text-width / 2
     val name-y = pos-y - center-y-offset
 
-    val card-x = pos-x - card-scaled.width / 2
     val card-y = name-y + padding + name-size
 
     drawText( result.player-name, name-x, name-y, name-size, darkgray )
@@ -621,11 +644,13 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
     val bounds = match result.card
       Just( card-ty ) ->
         val draw-color = if result.outcome.is-fainted then red else white
-        Just( CardBounds( gui-state.draw-card( card-ty, card-x, card-y, card-scaled.width, white ), card-ty ) )
+        Just( CardBounds( gui-state.draw-card( card-ty, pos-x, card-y, card-scaled.width, draw-color ), card-ty ) )
       Nothing -> Nothing
     
     if result.outcome.is-defeated then
-      drawText( "DEFEATED", card-x, card-y, name-size, red )
+      val defeated-size = name-size - 5
+      val defeated-x =  pos-x + (card-tgt-width / 2) - (measureText("DEFEATED", defeated-size) / 2)
+      drawText( "DEFEATED", defeated-x, card-y, defeated-size, red )
     else ()
 
     bounds
@@ -643,35 +668,43 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
       draw-phase( game-state.phase )
       draw-day( game-state.day )
 
-      val choice-width = 175
+      val player-stacks = gui-state.draw-players( game-state.players, Nothing )
+      val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
+
+      val choice-width = 250
       val center-y = windowHeight / 2
 
       val padding = 10
 
-      val start-x = 250
+      val center-x = windowWidth / 2
 
-      val attacker-result = attack-results.find( fn(r){ r.role.is-attacker }).unjust
-      val attacker-bounds = draw-result( gui-state, attacker-result, start-x, center-y, choice-width )
-
-      val vs-x = start-x + choice-width
+      val vs-x = choice-width + padding
       val vs-size = 75
-      val vs-y = center-y - vs-size / 2
-      drawText("VS", vs-x, vs-y, vs-size, darkgray)
-
-      val defender-x = vs-x + measureText( "VS", vs-size ) + 25 + choice-width / 2
+      val vs-width = measureText( "VS", vs-size )
 
       val defenders = attack-results.filter( fn(r){ r.role.is-defender } )
-      val defender-xs = list(0, defenders.length - 1).map( fn(i){ defender-x + (choice-width + padding) * i })
+
+      val defenders-x = vs-x + vs-width + padding
+      val defender-xs = defenders.map-indexed( fn( i, _ ){ defenders-x + (choice-width + padding) * i })
+
+      val x-center-offset = (defender-xs.maximum + choice-width) / 2
+
+      val attacker-result = attack-results.find( fn(r){ r.role.is-attacker }).gui/unjust( kk-line )
+      val attacker-bounds = draw-result( gui-state, attacker-result, center-x - x-center-offset, center-y, choice-width )
+
+      val vs-y = center-y - vs-size / 2
+      drawText("VS", center-x - x-center-offset + vs-x, vs-y, vs-size, darkgray)
+
       val defenders-pos = defender-xs.zip( defenders )
 
       val defender-bounds = defenders-pos.map( fn( (x, o) ) {
-        draw-result( gui-state, o, x, center-y, choice-width )
+        draw-result( gui-state, o, center-x - x-center-offset + x , center-y, choice-width )
       })
 
       val next-clicked = next-btn()
 
       val card-bounds-maybe = [attacker-bounds] ++ defender-bounds
-      val card-bounds = card-bounds-maybe.filter( fn(x){ x.is-just }).map( unjust )
+      val card-bounds = card-bounds-maybe.filter( fn(x){ x.is-just }).map( fn(x){ x.gui/unjust( kk-line ) } ) ++ stack-bounds
       gui-state.hover-card( card-bounds )
 
       endDrawing()
@@ -749,11 +782,16 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
 
       val stock-bounds = draw-stock( game-state.store, start-x, start-y, 0, [] )
 
+      val player-coins = game-state.players.find( fn(p){ p.name == player-name } ).unjust.coins
+
       val new-card = if isMouseButtonPressed( mouseButtonLeft ) then
         val clicked-card = stock-bounds.find( fn(cb){ is-over( cb.b, gui-state.mouse.last-x, gui-state.mouse.last-y ) })
         match clicked-card
           Nothing -> curr-card
-          Just( CardBounds(_, ty ) ) -> Just( ty )
+          Just( CardBounds(_, ty ) ) ->
+            if game-state.store.get-stock-count( ty ) > 0 && ty.get-price <= player-coins then
+              Just( ty )
+            else curr-card
       else curr-card
 
       val choose-clicked = guiButton( choose-btn-pos, "Choose" )
@@ -797,7 +835,7 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
       val scaled = gui-state.scale-card( 200 )
       val padding = 15
 
-      val offsets = list(0,3).map( fn(x){ x * (scaled.width + padding)})
+      val offsets = list(0,game-state.players.length - 1).map( fn(x){ x * (scaled.width + padding)})
       val total-width = offsets.maximum + scaled.width
       val center-x-offset = total-width / 2
 
@@ -810,16 +848,16 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
 
       offsets.map-indexed( fn(i, x){
         val name-y = center-y - center-y-offset
-        val name = game-state.players[i].unjust.name
+        val name = game-state.players[i].gui/unjust( kk-line ).name
         val name-width = measureText( name, name-size )
         val name-x = center-x - center-x-offset + x + scaled.width / 2 - name-width / 2
         drawText( name, name-x, name-y, name-size, darkgray )
 
-        val highlight-color = if buy-result.purchase-conflict[i].unjust then red else white
+        val highlight-color = if buy-result.purchase-conflict[i].gui/unjust( kk-line ) then red else white
 
         val card-y = name-y + name-size + padding
         val card-x = center-x - center-x-offset + x
-        val card = buy-result.cards[i].unjust
+        val card = buy-result.cards[i].gui/unjust( kk-line )
         match card
           Nothing -> ()
           Just( ty ) ->
@@ -837,3 +875,31 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
       else show-buy-results-r( gui-state )
 
   show-buy-results-r( init-gui-state )
+
+pub fun show-victory( init-gui-state : guiState, game-state : gameState ) : <raylib-io, guiExit> ()
+  fun show-victory-r( prev-gui-state : guiState )
+    if windowShouldClose() then exit()
+    else
+      val gui-state = prev-gui-state.update-mouse()
+
+      clearBackground( raywhite )
+      beginDrawing()
+
+      val victor-name = game-state.players[0].unjust.name
+
+      val victor-size = 75
+      val center-x = windowWidth / 2
+      val center-y = windowHeight / 2
+
+      val victor-text = victor-name ++ " wins!"
+
+      val center-x-offset = measureText( victor-text, victor-size ) / 2
+      val center-y-offset = victor-size / 2
+
+      drawText(victor-text, center-x - center-x-offset, center-y - center-y-offset, victor-size, darkgray)
+
+      endDrawing()
+
+      show-victory-r( gui-state )
+
+  show-victory-r( init-gui-state )

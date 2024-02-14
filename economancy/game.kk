@@ -3,6 +3,7 @@ pub type phase
   Invest
   Attack
   Buy
+  Victory
 
 pub fun phase/str( p : phase )
   match p
@@ -10,11 +11,18 @@ pub fun phase/str( p : phase )
     Invest -> "INVEST"
     Attack -> "ATTACK"
     Buy -> "BUY"
+    Buy -> "VICTORY"
 
 pub type day
   One
   Two
   Three
+
+fun next-day( d : day ) : pure day
+  match d
+    One -> Two
+    Two -> Three
+    Three -> One
 
 pub fun day/str( d : day )
   match d
@@ -84,8 +92,54 @@ pub fun cardType/cmp( x : cardType, y : cardType )
       Worker -> True
       _ -> False
 
+pub fun get-price( ty : cardType ) : pure int
+  match ty
+    Apprentice -> 3
+    BoardOfMonopoly -> 2
+    Bubble -> 2
+    Ghost -> 2 
+    GoldFish -> 3
+    Golem -> 5
+    Incantation -> 4 
+    MagicBeanStock -> 1
+    SeniorWorker -> 2
+    ShieldOfGreed -> 4
+    Thug -> 3
+    WallOfWealth -> 1
+    Worker -> 1
+
 fun get-card-stats( ty : cardType ) : pure (int, int)
-  (1,1) // TODO: Implement
+  match ty
+    Apprentice -> (2,1)
+    BoardOfMonopoly -> (1,1)
+    Bubble -> (9,2)
+    Ghost -> (3,2) 
+    GoldFish -> (1,2)
+    Golem -> (7,7)
+    Incantation -> (1,1) 
+    MagicBeanStock -> (1,1)
+    SeniorWorker -> (2,2)
+    ShieldOfGreed -> (2,7)
+    Thug -> (4,4)
+    WallOfWealth -> (1,2)
+    Worker -> (1,2)
+
+fun get-card-victory-points( ty : cardType ) : pure int
+  match ty
+    SorcerersStipend -> 0
+    Apprentice -> 0
+    BoardOfMonopoly -> 1
+    Bubble -> 0
+    Ghost -> 0
+    GoldFish -> 0
+    Golem -> 0
+    Incantation -> 3
+    MagicBeanStock -> 0
+    SeniorWorker -> 0
+    ShieldOfGreed -> 0
+    Thug -> 0
+    WallOfWealth -> 0
+    Worker -> 0
 
 pub struct stock
   card : cardType
@@ -134,9 +188,26 @@ fun get-init-stock( num-players : int ) : pure list<stock>
     Stock( Worker, 2 * num-players ),
   ]
 
+pub fun get-stock-count( store : list<stock>, p : cardType ) : pure int
+  store.find( fn(x){ cardType/cmp( x.card, p) } ).unjust.remaining
+
+fun remove-purchase( store : list<stock>, p : cardType, new-store : list<stock> = [] ) : pure list<stock>
+  match store
+    Nil -> new-store
+    Cons( x, xs ) ->
+      if cardType/cmp( x.card, p ) then
+        new-store ++ [x( remaining = [x.remaining - 1, 0].maximum )] ++ xs
+      else
+        remove-purchase( xs, p, new-store ++ [x])
+
+fun remove-purchases( store : list<stock>, purchases : list<cardType> ) : pure list<stock>
+  match purchases
+    Nil -> store
+    Cons( p, ps ) -> remove-purchases( remove-purchase( store, p ), ps )
+
 pub fun get-init-state( player-inits : list<playerInitInfo> )
   fun init-player( p : playerInitInfo )
-    Player(p.name, 0, 0, [PlayerCard(SorcerersStipend, 0, 0), PlayerCard(Worker, 0, 0)])
+    Player(p.name, 0, 0, [PlayerCard(SorcerersStipend, 0, 0), PlayerCard(Worker, 0, 0), PlayerCard(Worker, 0, 0)])
 
   val players = player-inits.map( init-player )
   val stock = get-init-stock( player-inits.length )
@@ -187,6 +258,9 @@ fun get-player-income( d : day, p : player, coins : int, cards : list<playerCard
     Nil -> coins
     Cons( c, cs ) -> get-player-income( d, p, coins + get-card-income( coins, c.ty, d ), cs)
 
+pub fun get-victory-points( p : player ) : pure int
+  p.cards.map( fn(c){ c.ty.get-card-victory-points } ).sum
+
 fun get-card-buys( c : cardType, d : day ) : pure int
   match c
     Apprentice ->
@@ -207,7 +281,7 @@ fun get-card-attacks-defends( c : cardType ) : pure playerCard
     _ -> PlayerCard( c, 1, 1 )
 
 pub fun resolve-income( state : gameState ) : <pure> (gameState, list<int>)
-  val incomes = state.players.map( fn( p ){ get-player-income( state.day, p, p.coins, p.cards )} )
+  val incomes = state.players.map( fn( p ){ get-player-income( state.day, p, 0, p.cards )} )
   val buys = state.players.map( fn( p ){ get-player-buys( state.day, p )})
   val cards = state.players.map( fn( p ){ p.cards.map( fn( c ){ get-card-attacks-defends( c.ty ) })})
   val new-players = state.players.zip( incomes ).zip( buys ).zip( cards ).map( fn( (((p,i),b),c) ){ p( coins = p.coins + i, buys = b, cards = c ) })
@@ -266,6 +340,7 @@ fun resolve-outcome( x : maybe<cardType>, y : maybe<cardType> ) : pure attackOut
           val (y-attack, _) = y-ty.get-card-stats()
           if y-attack > x-defense then Fainted else Okay
 
+// TODO: Add coins to players when shield of greed defends
 pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : pure (gameState, list<attackResult>)
   val attacker-name = state.attacker.unjust
   val attacker-idx = state.players.index-of( fn( p ){ p.name == attacker-name } )
@@ -291,6 +366,30 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
       resolve-outcomes( attacker-idx, curr-idx + 1, outcomes ++ [outcome])
 
   val outcomes = resolve-outcomes( attacker-idx, 0, [] )
+  
+  // Update players' cards' attacks and defends
+  fun update-card-attacks( role : attackRole, p : player, card-idx-maybe : maybe<int> )
+    match card-idx-maybe
+      Nothing -> p
+      Just( card-idx ) ->
+        val new-cards = p.cards.map-indexed( fn( i, c){
+          if i != card-idx then c
+          else
+            match role
+              Attacker -> c( attacks = [c.attacks - 1, 0].maximum)
+              Defender -> c( defends = [c.defends - 1, 0].maximum)
+        })
+        p( cards = new-cards )
+
+  fun remove-fainted-cards( p : player, o : attackOutcome, card-idx-maybe : maybe<int> )
+    match o
+      Fainted ->
+        match card-idx-maybe
+          Just( idx ) ->
+            val new-cards = p.cards.drop-idx( idx )
+            p( cards = new-cards )
+          _ -> p
+      _ -> p
 
   fun get-role( p : player )
     if p.name == attacker-name then Attacker
@@ -298,8 +397,27 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
 
   // TODO: We can probably just do this once
   val choices = list(0, attack-cards.length - 1).map( get-choice-ty )
+
   val results = state.players.zip( choices ).zip( outcomes ).map( fn( ((p,c),o) ){ AttackResult(p.name, get-role( p ), c, o)} )
-  (state( phase = Buy ), results)
+
+  val players-attacks-updated = state.players.zip( attack-cards ).map( fn( (p,c) ){ update-card-attacks( get-role( p ), p, c) })
+  val players-faints-updated = players-attacks-updated.zip( outcomes ).zip( attack-cards ).map( fn( ((p,o),c) ){ remove-fainted-cards( p, o, c )})
+  val remaining-players = players-faints-updated.zip( outcomes ).filter( fn( (p,o) ){ !o.is-defeated }).map( fn( (p,_) ){ p })
+
+  // Determine phase. Phase is attack if the attacking player has cards with
+  // remaining attacks OR the attacker has passed.
+  val new-phase = if remaining-players.length == 1 then
+    Victory
+  else
+    match attacker-choice
+      Nothing -> Buy
+      _ ->
+        val has-attacks = players-attacks-updated[attacker-idx].unjust.cards.any( fn(c){ c.attacks > 0 })
+        if has-attacks then Attack else Buy
+
+  val new-attacker = if new-phase.is-attack then state.attacker else Nothing
+
+  (state( phase = new-phase, players = remaining-players, attacker = new-attacker ), results)
 
   // Remove defeated players
   // Set phase based on remaining attack cards (or pass)
@@ -310,8 +428,57 @@ pub struct buyResult
   purchase-amts : list<int>
 
 pub fun resolve-buy( state : gameState, buy-cards : list<maybe<cardType>> ) : pure (gameState, buyResult)
-  val dummy-cards = [Just(Worker), Just(Apprentice), Nothing, Just(Apprentice)]
-  val dummy-conflict = [False, True, False, True]
-  val dummy-amts = [2, 3, 0, 3]
-  val dummy-result = BuyResult( dummy-cards, dummy-conflict, dummy-amts )
-  (state, dummy-result)
+  val players-decremented-buys = state.players.map( fn(p){ p( buys = [p.buys - 1, 0].maximum)})
+  val buy-choices = buy-cards.filter( fn(c){ c.is-just } ).map( unjust )
+
+  // Resolve all buys
+  fun resolve-player-buy( buy : maybe<cardType> )
+    match buy
+      Nothing -> Nothing
+      Just( card-ty ) ->
+        // If there are fewer cards available than the total buys, players get nothing
+        val num-buys = buy-choices.filter( fn(ty : cardType){ cardType/cmp( ty, card-ty ) }).length
+        if num-buys >= state.store.get-stock-count( card-ty ) then Nothing
+        else
+          Just( card-ty )
+
+  val buy-results = buy-cards.map( resolve-player-buy )
+  val purchase-conflicts = buy-results.map( fn(x){ if x.is-just then False else True})
+  val purchase-amts = buy-cards.map( fn(x){ 
+    match x
+      Nothing -> 0
+      Just( c ) -> c.get-price
+  })
+
+  // Update players
+  val players-updated = state.players.zip( buy-results ).zip( purchase-amts ).map( fn( ((p,r),a) ){ 
+      val new-num-buys = [p.buys - 1, 0].maximum
+      val new-coins = p.coins - a
+
+      val new-cards = match r
+        Nothing -> p.cards
+        Just( ty ) -> p.cards ++ [PlayerCard( ty, 0, 0 )]
+
+      p( buys = new-num-buys, cards = new-cards, coins = new-coins) 
+  })
+
+  val new-store = state.store.remove-purchases( buy-choices )
+
+  // Players can win here if:
+  // - At least one player has 7+ victory points (player with most points wins)
+  // - If multiple players have 7+ and they are the same, play continues
+  // - TODO: Stock is exhausted and players can't eliminate each other
+  val victory-points = players-updated.map( fn(p){ p.get-victory-points })
+  val max-points = victory-points.maximum
+  val num-max = victory-points.filter( fn(p){ p == max-points }).length
+  val has-victor = max-points > 7 && num-max == 1
+  val players-with-victor = if has-victor then players-updated.filter( fn(p){ p.get-victory-points == max-points }) else players-updated
+
+  val next-phase = if has-victor then Victory
+    else if players-updated.any( fn(x){ x.buys > 0 }) then Buy 
+    else Income
+  val next-day = if next-phase.is-buy then state.day else state.day.next-day
+
+  val result = BuyResult( buy-cards, purchase-conflicts, purchase-amts )
+
+  (state( phase = next-phase, day = next-day, store = new-store, players = players-with-victor), result)
