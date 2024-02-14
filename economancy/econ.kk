@@ -30,7 +30,9 @@ fun get-attacks( players : list<playerInitInfo>,
           val i = get-attack( game-state, p.name )
           get-attacks( ps, game-state, gui-state, curr-attacks ++ [i] )
         Human ->
-          val (new-gui-state, i) = gui-state.get-attack-card( game-state, p.name )
+          // Attacker joice is always first card in curr-attacks
+          val attacker-card-idx = if curr-attacks.length > 0 then curr-attacks[0].unjust else Nothing
+          val (new-gui-state, i) = gui-state.get-attack-card( game-state, p.name, attacker-card-idx )
           get-attacks( ps, game-state, new-gui-state, curr-attacks ++ [i] )
 
 fun get-buys( players : list<playerInitInfo>,
@@ -63,8 +65,19 @@ fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-st
       game-loop( player-info, result-gui-state, new-game-state )
     Attack ->
       // TODO: Have attacker choose card first, highlight it when defenders are choosing their cards.
-      val (attack-gui-state, attack-cards) = get-attacks( player-info, game-state, gui-state, [] )
-      val (new-game-state, attack-results) = game-state.resolve-attack( attack-cards )
+      // Reorder players so that attacker chooses card first.
+      val attacker-idx = player-info.index-of( fn(p){ p.name == game-state.attacker.unjust } )
+      val attacker-info = player-info[attacker-idx].unjust
+      val defender-info = player-info.filter( fn(p){ p.name != game-state.attacker.unjust })
+      val player-info-reordered = [attacker-info] ++ defender-info
+
+      val (attack-gui-state, attack-cards) = get-attacks( player-info-reordered, game-state, gui-state, [] )
+      
+      // Reorder attack cards so attacker is in the right spot.
+      val attacker-choice = attack-cards[0].unjust
+      val defender-choices = attack-cards.drop(1)
+      val attack-cards-reordered = defender-choices.take( attacker-idx ) ++ [attacker-choice] ++ defender-choices.drop(attacker-idx)
+      val (new-game-state, attack-results) = game-state.resolve-attack( attack-cards-reordered )
       val result-gui-state = attack-gui-state.show-attack-results( game-state, attack-results )
 
       game-loop( player-info, result-gui-state, new-game-state )

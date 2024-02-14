@@ -192,7 +192,8 @@ fun draw-player( gui-state : guiState,
                  player : player,
                  active-player : maybe<string>,
                  income : maybe<int>,
-                 attacker : maybe<string> ) : <raylib-io> playerStackInfo
+                 attacker : maybe<string>,
+                 attacker-card-idx : maybe<int> ) : <raylib-io> playerStackInfo
   val name-font-size = 36
   val coins-font-size = 36
 
@@ -223,14 +224,26 @@ fun draw-player( gui-state : guiState,
   drawText( player.name, name-x, name-y, name-font-size, name-color )
 
   val card-bounds = player.cards.zip( stack-xs ).map-indexed( fn( i, (c, x) ){
-    // Make card gray if tapped
-    val is-tapped = match attacker
+    val is-attacker = match attacker
       Nothing -> False
-      Just( attacker-name ) ->
-        if attacker-name == player.name then c.attacks == 0
-        else c.defends == 0
+      Just( attacker-name ) -> attacker-name == player.name
 
-    val draw-color = if is-tapped then gray else white
+    // Make card gray if tapped, red if attacker and card is attacking
+    val is-tapped = if is-attacker then c.attacks == 0 else c.defends == 0
+    val tapped-color = if is-tapped then gray else white
+
+    // val draw-color = tapped-color
+    val is-attacking-card = match attacker-card-idx
+      Nothing -> False
+      Just( idx ) -> idx == i
+
+    val attack-color = if is-attacker then
+      if is-attacking-card then red
+      else tapped-color
+    else tapped-color
+
+    val draw-color = if attacker.is-just then attack-color else white
+
     val bounds = gui-state.draw-card( c.ty, x, stack-y, card-scaled.width, draw-color )
     CardBounds( bounds, c.ty ) })
 
@@ -242,17 +255,18 @@ fun draw-players( gui-state : guiState,
                   players : list<player>,
                   active-player : maybe<string> = Nothing,
                   maybe-incomes : maybe<list<int>> = Nothing,
-                  attacker : maybe<string> = Nothing ) : <raylib-io> list<playerStackInfo>
+                  attacker : maybe<string> = Nothing,
+                  attacker-card-idx : maybe<int> = Nothing ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
 
   match maybe-incomes
     Just( incomes ) ->
       val players-locs-incomes = zip( zip(players, player-locs), incomes )
-      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, active-player, Just( i ), attacker )})
+      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, active-player, Just( i ), attacker, attacker-card-idx )})
       player-stacks
     Nothing ->
       val players-locs = zip( players, player-locs )
-      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, active-player, Nothing, attacker )})
+      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, active-player, Nothing, attacker, attacker-card-idx )})
       player-stacks
 
 effect guiExit
@@ -542,7 +556,7 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
 
   show-invest-results-r( init-gui-state )
 
-pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, maybe<int>)
+pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, player-name : string, attacker-card-idx : maybe<int> ) : <raylib-io, guiExit> (guiState, maybe<int>)
   val padding = 25
 
   // TODO: Make card-chooser return width and height so we can place elements around it
@@ -589,7 +603,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = game-state.attacker )
+      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = game-state.attacker, attacker-card-idx = attacker-card-idx )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
