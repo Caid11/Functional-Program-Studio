@@ -207,7 +207,7 @@ fun remove-purchases( store : list<stock>, purchases : list<cardType> ) : pure l
 
 pub fun get-init-state( player-inits : list<playerInitInfo> )
   fun init-player( p : playerInitInfo )
-    Player(p.name, 0, 0, [PlayerCard(SorcerersStipend, 0, 0), PlayerCard(Worker, 0, 0), PlayerCard(Worker, 0, 0)])
+    Player(p.name, 0, 0, [PlayerCard(SorcerersStipend, 0, 0)])
 
   val players = player-inits.map( init-player )
   val stock = get-init-stock( player-inits.length )
