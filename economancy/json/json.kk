@@ -1,4 +1,5 @@
 import std/num/float64
+import std/os/file
 import std/os/path
 
 pub type jsonValue
@@ -59,5 +60,23 @@ pub fun jsonValue/show( v : jsonValue )
 pub fun jsonPair/show( p : jsonPair )
   "\"" ++ p.name ++ "\": " ++ p.value.show
 
-pub fun parse-json-file( p : path ) : <exn,fsys> jsonValue
-  Object( [] )
+pub fun parse-json-file( p : path ) : <div,exn,fsys> maybe<jsonValue>
+  val contents = read-text-file( p )
+  parse-json-string( contents )
+
+pub fun parse-json-string( s : string ) : pure maybe<jsonValue>
+  parse-json( s.list )
+
+// We're parsing either an object or an array. Find first delimiter to indicate
+// which.
+fun parse-json( s : list<char> )
+  match s
+    Nil -> Nothing
+    Cons( '{', rest ) -> parse-json-object( rest )
+    // TODO: Arrays
+
+fun parse-json-object( s : list<char> )
+  match s
+    Nil -> Nothing
+    Cons( '}', _ ) -> Just( Object( [] ) )
+    Cons( _, rest ) -> parse-json-object( rest )
