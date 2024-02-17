@@ -84,12 +84,12 @@ val mouse-over-frames = int(60.0 * 0.5)
 val phase-day-size = 60
 
 fun draw-phase( game-phase : phase ) : raylib-io ()
-  val phase-text-width = raylib-MeasureText( game-phase.str, phase-day-size )
+  val phase-text-width = raylib-MeasureText( game-phase.show, phase-day-size )
   val phase-x = windowWidth - phase-text-width - 25
-  drawText( game-phase.str, phase-x, 25, phase-day-size, darkgray )
+  drawText( game-phase.show, phase-x, 25, phase-day-size, darkgray )
 
 fun draw-day( game-day : day ) : raylib-io ()
-  val day-text = "DAY " ++ game-day.str
+  val day-text = "DAY " ++ game-day.show
   drawText( day-text, 25, 25, phase-day-size, darkgray )
 
 fun center( container-width : int, object-width : int ) : int
@@ -122,7 +122,7 @@ fun card-height( gui-state : guiState ) : <exn> float64
   card.tex.height.float64
 
 fun get-card-tex( gui-state : guiState, c : cardType )
-  gui-state.cards.filter( fn(c-info){ game/cardType/cmp(c-info.ty, c) }).head.gui/unjust( kk-line ).tex
+  gui-state.cards.filter( fn(c-info){ c-info.ty == c }).head.gui/unjust( kk-line ).tex
 
 struct cardScaleInfo
   width : int
@@ -778,7 +778,7 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
             Cons( Stock( card, num ), rest ) ->
               val highlight-color = match curr-card
                 Nothing -> white
-                Just( ty ) -> if game/cardType/cmp(ty, card) then yellow else white
+                Just( ty ) -> if ty == card then yellow else white
 
               val card-bounds = gui-state.draw-card( card, x-pos, y-pos, card-scaled.width, highlight-color )
 

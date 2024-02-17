@@ -5,7 +5,7 @@ pub type phase
   Buy
   Victory
 
-pub fun phase/str( p : phase )
+pub fun phase/show( p : phase )
   match p
     Income -> "INCOME"
     Invest -> "INVEST"
@@ -13,22 +13,37 @@ pub fun phase/str( p : phase )
     Buy -> "BUY"
     Buy -> "VICTORY"
 
+// TODO: This is specific to the assignment's API, and should probably be in its own module.
+pub fun string/phase( p : string )
+  match p
+    "income" -> Income
+    "investing" -> Invest
+    "attacking" -> Attack
+    "buy" -> Buy
+    "end" -> Victory
+
 pub type day
   One
   Two
   Three
+
+pub fun int/day( i : int )
+  match i
+    1 -> One
+    2 -> Two
+    3 -> Three
+
+pub fun day/show( d : day )
+  match d
+    One -> "1"
+    Two -> "2"
+    Three -> "3"
 
 fun next-day( d : day ) : pure day
   match d
     One -> Two
     Two -> Three
     Three -> One
-
-pub fun day/str( d : day )
-  match d
-    One -> "1"
-    Two -> "2"
-    Three -> "3"
 
 pub type cardType
   SorcerersStipend
@@ -46,8 +61,41 @@ pub type cardType
   WallOfWealth
   Worker
 
-// TODO: It feels like there should be something built in for this...
-pub fun cardType/cmp( x : cardType, y : cardType )
+pub fun string/cardType( s : string )
+  match s
+    "Sorcerer's Stipend" -> SorcerersStipend
+    "Apprentice" -> Apprentice
+    "Board of Monopoly" -> BoardOfMonopoly
+    "Bubble" -> Bubble
+    "Ghost" -> Ghost
+    "Gold Fish" -> GoldFish
+    "Golem" -> Golem
+    "Incantation" -> Incantation
+    "Magic Bean Stock" -> MagicBeanStock
+    "Senior Worker" -> SeniorWorker
+    "Shield of Greed" -> ShieldOfGreed
+    "Thug" -> Thug
+    "Wall of Wealth" -> WallOfWealth
+    "Worker" -> Worker
+
+pub fun cardType/show( ty : cardType )
+  match ty
+    SorcerersStipend -> "Sorcerer's Stipend"
+    Apprentice -> "Apprentice"
+    BoardOfMonopoly -> "Board of Monopoly"
+    Bubble -> "Bubble"
+    Ghost -> "Ghost"
+    GoldFish -> "Gold Fish"
+    Golem -> "Golem"
+    Incantation -> "Incantation"
+    MagicBeanStock -> "Magic Bean Stock"
+    SeniorWorker -> "Senior Worker"
+    ShieldOfGreed -> "Shield of Greed"
+    Thug -> "Thug"
+    WallOfWealth -> "Wall of Wealth"
+    Worker -> "Worker"
+
+pub fun cardType/(==)( x : cardType, y : cardType )
   match x
     SorcerersStipend -> match y
       SorcerersStipend -> True
@@ -145,16 +193,29 @@ pub struct stock
   card : cardType
   remaining : int
 
+pub fun stock/show( s : stock )
+  "Type: " ++ s.card.show ++ " Remaining: " ++ s.remaining.show
+
 pub struct playerCard
   ty : cardType
   attacks : int
   defends : int
+
+pub fun playerCard/show( p : playerCard )
+  "Type: " ++ p.ty.show ++ " Attacks: " ++ p.attacks.show ++ " Defends: " ++ p.defends.show
   
 pub struct player
   name : string
   coins : int
   buys : int
   cards : list<playerCard>
+
+// TODO: The tabs here are hard-coded to show players when printing game state.
+pub fun player/show( p : player )
+  "Name: " ++ p.name ++ 
+  "\n\t\tCoins: " ++ p.coins.show ++ 
+  "\n\t\tBuys: " ++ p.buys.show ++ 
+  "\n\t\tCards: " ++ p.cards.show
 
 pub struct gameState
   phase : phase
@@ -163,6 +224,16 @@ pub struct gameState
   players : list<player>
   attacker : maybe<string>
 
+pub fun gameState/show( s : gameState )
+  val attacker-str = if s.attacker.is-nothing then "NONE" else s.attacker.unjust
+
+  "Phase: " ++ s.phase.show ++ 
+    "\n\tDay: " ++ s.day.show ++ 
+    "\n\tStore:\n\t\t" ++ s.store.map( show ).join( "\n\t\t" ) ++
+    "\n\tPlayers:\n\t\t" ++ s.players.map( show ).join( "\n\t\t" ) ++
+    "\n\tAttacker: " ++ attacker-str
+
+// TODO: This shouldn't be in this module
 type playerType
   Human
   Cpu
@@ -189,13 +260,13 @@ fun get-init-stock( num-players : int ) : pure list<stock>
   ]
 
 pub fun get-stock-count( store : list<stock>, p : cardType ) : pure int
-  store.find( fn(x){ cardType/cmp( x.card, p) } ).unjust.remaining
+  store.find( fn(x){ x.card == p } ).unjust.remaining
 
 fun remove-purchase( store : list<stock>, p : cardType, new-store : list<stock> = [] ) : pure list<stock>
   match store
     Nil -> new-store
     Cons( x, xs ) ->
-      if cardType/cmp( x.card, p ) then
+      if x.card == p then
         new-store ++ [x( remaining = [x.remaining - 1, 0].maximum )] ++ xs
       else
         remove-purchase( xs, p, new-store ++ [x])
@@ -437,7 +508,7 @@ pub fun resolve-buy( state : gameState, buy-cards : list<maybe<cardType>> ) : pu
       Nothing -> Nothing
       Just( card-ty ) ->
         // If there are fewer cards available than the total buys, players get nothing
-        val num-buys = buy-choices.filter( fn(ty : cardType){ cardType/cmp( ty, card-ty ) }).length
+        val num-buys = buy-choices.filter( fn(ty : cardType){ ty == card-ty }).length
         if num-buys >= state.store.get-stock-count( card-ty ) then Nothing
         else
           Just( card-ty )

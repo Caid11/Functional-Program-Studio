@@ -45,13 +45,6 @@ pub fun jsonValue/(==)( x : jsonValue, y : jsonValue ) : div bool
 pub fun jsonValue/(!=)( x : jsonValue, y : jsonValue ) : div bool
   !(x == y)
 
-
-pub fun jsonPair/(==)( x : jsonPair, y : jsonPair ) : div bool
-  x.name == y.name && x.value == y.value
-
-pub fun jsonPair/(!=)( x : jsonPair, y : jsonPair ) : div bool
-  !(x == y)
-
 pub fun jsonValue/show( v : jsonValue )
   match v
     Number( num : float64 ) -> num.show
@@ -60,6 +53,31 @@ pub fun jsonValue/show( v : jsonValue )
     Array( l : list<jsonValue> ) -> "[" ++ l.map( show ).join( ", ") ++ "]"
     Object( l : list<jsonPair> ) -> "{" ++ l.map( show ).join( ", ") ++ "}"
     Null -> "null"
+
+pub fun key( v : jsonValue, key-name : string ) : <pure> jsonValue
+  match v
+    Object( pairs ) ->
+      val res = pairs.find( fn(p){ p.name == key-name } )
+      match res
+        Just( p ) -> p.value
+
+pub fun jsonValue/int( v : jsonValue )
+  match v
+    Number( n ) -> n.int
+
+pub fun jsonValue/string( v : jsonValue )
+  match v
+    String( s ) -> s
+
+pub fun jsonValue/array( v : jsonValue )
+  match v
+    Array( elems ) -> elems
+
+pub fun jsonPair/(==)( x : jsonPair, y : jsonPair ) : div bool
+  x.name == y.name && x.value == y.value
+
+pub fun jsonPair/(!=)( x : jsonPair, y : jsonPair ) : div bool
+  !(x == y)
 
 pub fun jsonPair/show( p : jsonPair )
   "\"" ++ p.name ++ "\": " ++ p.value.show
