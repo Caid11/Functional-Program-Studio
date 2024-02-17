@@ -32,7 +32,7 @@ fun get-attacks( players : list<playerInitInfo>,
           val i = get-attack( game-state, p.name, Random )
           get-attacks( ps, game-state, gui-state, curr-attacks ++ [i] )
         Human ->
-          // Attacker joice is always first card in curr-attacks
+          // Attacker choice is always first card in curr-attacks
           val attacker-card-idx = if curr-attacks.length > 0 then curr-attacks[0].unjust else Nothing
           val (new-gui-state, i) = gui-state.get-attack-card( game-state, p.name, attacker-card-idx )
           get-attacks( ps, game-state, new-gui-state, curr-attacks ++ [i] )
