@@ -1,6 +1,7 @@
 import std/num/float64
 import std/os/readline
 
+import cpu-player
 import json/json
 import game
 
@@ -38,15 +39,14 @@ fun read-json-object()
     val json-string = read-json-object-string( "" )
     json-string.parse-json-string
 
-// TODO: We're using exceptions here, so I think we can drop the maybe
-fun to-game-state( obj : jsonValue ) : pure maybe<gameState>
+fun to-game-state( obj : jsonValue ) : pure (gameState, string)
   val day-num = obj.key( "day" ).int
   val curr-day = day-num.int/day
 
   val phase-obj = obj.key( "phase" )
   val curr-phase = phase-obj.key( "name" ).string.phase
   
-  if curr-phase.is-victory then Just( GameState( curr-phase, One, [], [], Nothing ) )
+  if curr-phase.is-victory then (GameState( curr-phase, One, [], [], Nothing ), "")
   else {
     // TODO: Attacker's card isn't represented in my game state. Pass it around separately?
     val (attacker, attacker-card) = match curr-phase
@@ -76,7 +76,10 @@ fun to-game-state( obj : jsonValue ) : pure maybe<gameState>
       PlayerCard( card-ty, attacks, defends )
 
     fun obj-to-player( name : string, v : jsonValue )
-      val is-attacker = player-str == name
+      val is-attacker = match attacker
+        Just( attacker-name ) -> attacker-name == name
+        Nothing -> False
+
       val buys = v.key( "buys" ).int
       val cards = v.key( "cards" ).array.map( fn(c){ obj-to-card( is-attacker, c ) })
       val coins = v.key( "coins" ).int
@@ -92,24 +95,36 @@ fun to-game-state( obj : jsonValue ) : pure maybe<gameState>
       Stock( p.name.cardType, p.value.int )
     })
 
-    Just( GameState( curr-phase, curr-day, stock, players, attacker) )
+    (GameState( curr-phase, curr-day, stock, players, attacker), player-str)
   }
 
 fun main()
   with handler
-    ctl fail( msg : string )
-      println( "Failed to parse JSON. Error: " ++ msg )
+    ctl fail( msg : string ) { println( "Failed to parse JSON. Error: " ++ msg ) }
 
   fun loop()
-    val obj = read-json-object()
-    println(obj.show)
 
-    val game-state-maybe = obj.to-game-state()
-    match game-state-maybe
-      Nothing -> println( "Unable to parse game state from JSON" )
-      Just( state ) ->
-        println( state.show )
-        loop()
+    val obj = read-json-object()
+    val (game-state, player) = obj.to-game-state()
+    
+    // TODO: Looking at this, I can probably combine these functions and just pull the phase out of the state.
+    match game-state.phase
+      Invest ->
+        val move = get-invest( game-state, player, Random )
+        println( Array( [Number(move.float64) ]).show )
+      Attack ->
+        val move = get-attack( game-state, player, Random )
+        match move
+          Nothing -> println( Array( [Number(0.0)]).show )
+          Just( num ) -> println( Array( [Number(num.float64) ]).show )
+      Buy ->
+        val move = get-buy( game-state, player, Random )
+        val card-str = match move
+          Nothing -> "Pass"
+          Just( ty ) -> ty.show
+        println( Array( [String(card-str)]).show )
+
+    loop()
 
   loop()
 

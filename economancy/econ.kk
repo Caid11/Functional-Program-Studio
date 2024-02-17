@@ -1,3 +1,5 @@
+import std/num/random
+
 import cpu-player
 import game
 import gui
@@ -6,13 +8,13 @@ import raylib/raylib
 fun get-invests( players : list<playerInitInfo>,
                  game-state : gameState,
                  gui-state : guiState,
-                 curr-invests : list<int> ) : <guiExit, raylib-io> (guiState, list<int>)
+                 curr-invests : list<int> ) : <guiExit, raylib-io, random> (guiState, list<int>)
   match players
     Nil -> (gui-state, curr-invests)
     Cons( p, ps ) ->
       match p.ty
         Cpu ->
-          val i = get-invest( game-state, p.name )
+          val i = get-invest( game-state, p.name, Random )
           get-invests( ps, game-state, gui-state, curr-invests ++ [i] )
         Human ->
           val (new-gui-state, i) = gui-state.get-investment( game-state, p.name )
@@ -21,13 +23,13 @@ fun get-invests( players : list<playerInitInfo>,
 fun get-attacks( players : list<playerInitInfo>,
                  game-state : gameState,
                  gui-state : guiState,
-                 curr-attacks : list<maybe<int>> ) : <guiExit, raylib-io> (guiState, list<maybe<int>>)
+                 curr-attacks : list<maybe<int>> ) : <guiExit, raylib-io, random> (guiState, list<maybe<int>>)
   match players
     Nil -> (gui-state, curr-attacks)
     Cons( p, ps ) ->
       match p.ty
         Cpu ->
-          val i = get-attack( game-state, p.name )
+          val i = get-attack( game-state, p.name, Random )
           get-attacks( ps, game-state, gui-state, curr-attacks ++ [i] )
         Human ->
           // Attacker joice is always first card in curr-attacks
@@ -38,13 +40,13 @@ fun get-attacks( players : list<playerInitInfo>,
 fun get-buys( players : list<playerInitInfo>,
               game-state : gameState,
               gui-state : guiState,
-              curr-buys : list<maybe<cardType>> ) : <guiExit, raylib-io> (guiState, list<maybe<cardType>>)
+              curr-buys : list<maybe<cardType>> ) : <guiExit, raylib-io, random> (guiState, list<maybe<cardType>>)
   match players
     Nil -> (gui-state, curr-buys)
     Cons( p, ps ) ->
       match p.ty
         Cpu ->
-          val i = get-buy( game-state, p.name )
+          val i = get-buy( game-state, p.name, Random )
           get-buys( ps, game-state, gui-state, curr-buys ++ [i] )
         Human ->
           val (new-gui-state, i) = gui-state.get-buy-card( game-state, p.name )

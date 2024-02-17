@@ -233,6 +233,12 @@ pub fun gameState/show( s : gameState )
     "\n\tPlayers:\n\t\t" ++ s.players.map( show ).join( "\n\t\t" ) ++
     "\n\tAttacker: " ++ attacker-str
 
+fun get-player( game-state : gameState, player-name : string )
+  game-state.players.find( fn( p ){ p.name == player-name }).unjust
+
+fun get-player-card( game-state : gameState, player-name : string, card-idx : int )
+  game-state.get-player( player-name ).cards[card-idx].unjust
+
 // TODO: This shouldn't be in this module
 type playerType
   Human

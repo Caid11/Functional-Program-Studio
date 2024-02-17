@@ -368,12 +368,6 @@ fun card-chooser( gui-state : guiState,
 
   new-card-idx
 
-fun get-player( game-state : gameState, player-name : string )
-  game-state.players.find( fn( p ){ p.name == player-name }).gui/unjust( kk-line )
-
-fun get-player-card( game-state : gameState, player-name : string, card-idx : int )
-  game-state.get-player( player-name ).cards[card-idx].gui/unjust( kk-line )
-
 fun next-btn() : raylib-io bool
   val btn-width : float64 = 300.0
   val btn-height : float64 = 150.0
