@@ -75,14 +75,14 @@ pub fun parse-json-string( s : string ) : <pure,jsonParseFail> jsonValue
 // which.
 fun parse-json( s : list<char> )
   match s
-    Nil -> fail( "this is prob a bad error message" )
+    Nil -> fail( "unexpected end of json" )
     Cons( '{', _ ) ->
       val (object, object-rest) = parse-json-object( s )
-      if object-rest.list/length > 0 then fail( "expected a single top-level array or object" )
+      if object-rest.consume-whitespace.length > 0 then fail( "expected a single top-level array or object" )
       else object
     Cons( '[', _ ) ->
       val (array, array-rest) = parse-json-array( s )
-      if array-rest.length > 0 then fail( "expected a single top-level array or object" )
+      if array-rest.consume-whitespace.length > 0 then fail( "expected a single top-level array or object" )
       else array
 
 fun parse-json-object( s : list<char>, pairs : list<jsonPair> = [] )

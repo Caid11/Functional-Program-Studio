@@ -40,6 +40,10 @@ fun main()
              { parse-json-string( "{}" ) },
              Object( [] ) )
 
+  expect-eq( "emptyObjectWithNewline",
+             { parse-json-string( "{}\n" ) },
+             Object( [] ) )
+
   expect-eq( "emptyArray",
              { parse-json-string( "[]" ) },
              Array( [] ) )
