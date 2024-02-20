@@ -425,6 +425,8 @@ pub fun resolve-current-phase( state : gameState ) : <pure, getPlayerMove> (game
 
   resolve-fn( state )
 
+// TODO: Only get player moves if they aren't defeated
+
 fun resolve-income( state : gameState ) : <pure> (gameState, phaseResult)
   val incomes = state.players.map( fn( p ){ get-player-income( state.day, p, 0, p.cards )} )
   val buys = state.players.map( fn( p ){ get-player-buys( state.day, p )})

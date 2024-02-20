@@ -56,7 +56,9 @@ fun get-buy( game-state : gameState, player-idx : int, s : strategy ) : <pure,ra
         BuyMove( choice.card )
 
 pub fun get-cpu-move( game-state : gameState, idx : int, s : strategy ) : <pure,random> playerMove
-  match game-state.phase
-    Invest -> get-invest( game-state, idx, s)
-    Buy -> get-buy( game-state, idx, s)
-    Attack -> get-attack( game-state, idx, s)
+  if game-state.players[idx].unjust.status.is-defeated then Pass
+  else
+    match game-state.phase
+      Invest -> get-invest( game-state, idx, s)
+      Buy -> get-buy( game-state, idx, s)
+      Attack -> get-attack( game-state, idx, s)

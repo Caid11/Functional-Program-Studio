@@ -946,12 +946,14 @@ fun show-victory( init-gui-state : guiState, game-state : gameState ) : <raylib-
 
 // TODO: Do we need to return the gui state from this function? I think we just throw it away between phases.
 pub fun get-move( gui-state : guiState, game-state : gameState, player-idx : int ) : <raylib-io,guiExit> (guiState, playerMove)
-  val player-name = game-state.players[player-idx].unjust.name
+  if game-state.players[player-idx].unjust.status.is-defeated then (gui-state, Pass)
+  else
+    val player-name = game-state.players[player-idx].unjust.name
 
-  match game-state.phase
-    Invest -> gui-state.get-invest( game-state, player-name )
-    Buy -> gui-state.get-buy-choice( game-state, player-name )
-    Attack -> gui-state.get-attack-choice( game-state, player-name )
+    match game-state.phase
+      Invest -> gui-state.get-invest( game-state, player-name )
+      Buy -> gui-state.get-buy-choice( game-state, player-name )
+      Attack -> gui-state.get-attack-choice( game-state, player-name )
 
 pub fun show-phase-results( gui-state : guiState, game-state : gameState, phase-result : phaseResult ) : <raylib-io,guiExit> guiState
   match phase-result
