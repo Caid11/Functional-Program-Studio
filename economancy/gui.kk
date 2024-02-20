@@ -415,7 +415,7 @@ fun draw-mouse-over( gui-state : guiState, card : cardType, x-pos : int, y-pos :
   gui-state.draw-card( card, card-x, card-y, card-scaled.width, white)
   ()
 
-pub fun hover-card( gui-state : guiState, bounds : list<cardBounds> ) : raylib-io ()
+fun hover-card( gui-state : guiState, bounds : list<cardBounds> ) : raylib-io ()
   val x-pos = gui-state.mouse.last-x
   val y-pos = gui-state.mouse.last-y
 
@@ -426,7 +426,7 @@ pub fun hover-card( gui-state : guiState, bounds : list<cardBounds> ) : raylib-i
       Just( CardBounds( _, ty ) ) -> gui-state.draw-mouse-over( ty, x-pos, y-pos )
   else ()
 
-pub fun show-income-results( init-gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> guiState
+fun show-income-results( init-gui-state : guiState, game-state : gameState, player-incomes : list<int> ) : <raylib-io, guiExit> guiState
   fun show-income-results-r( prev-gui-state : guiState )
     if windowShouldClose() then exit()
     else
@@ -454,7 +454,7 @@ pub fun show-income-results( init-gui-state : guiState, game-state : gameState, 
 
   show-income-results-r( init-gui-state )
       
-pub fun get-investment( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, int)
+fun get-invest( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, playerMove)
   val padding = 25
 
   val adjust-center-x = windowWidth / 2
@@ -465,7 +465,7 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
 
   val num-coins = game-state.get-player( player-name ).coins
 
-  fun get-investment-r( prev-gui-state : guiState, curr-invest : int )
+  fun get-invest-r( prev-gui-state : guiState, curr-invest : int )
     val adjust-down-x = 0
     val invest-x = adjust-down-x + adjust-btn-width + padding
     val adjust-up-x = invest-x + measureText( curr-invest.show, invest-font-size ) + padding
@@ -524,12 +524,12 @@ pub fun get-investment( init-gui-state : guiState, game-state : gameState, playe
 
       endDrawing()
 
-      if invest-clicked then (gui-state, curr-invest)
-      else get-investment-r( gui-state, new-invest )
+      if invest-clicked then (gui-state, InvestMove( curr-invest ) )
+      else get-invest-r( gui-state, new-invest )
 
-  get-investment-r( init-gui-state, 0 )
+  get-invest-r( init-gui-state, 0 )
 
-pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, invest-result : investResult ) : <raylib-io, guiExit> guiState
+fun show-invest-results( init-gui-state : guiState, game-state : gameState, winner-name : maybe<string>, investments: list<int> ) : <raylib-io, guiExit> guiState
   fun show-invest-results-r( prev-gui-state : guiState )
     if windowShouldClose() then exit()
     else
@@ -542,14 +542,14 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
       draw-phase( game-state.phase )
       draw-day( game-state.day )
 
-      val player-incomes = invest-result.investments.map( fn( invest ){ invest * -1 } )
+      val player-incomes = investments.map( fn( invest ){ invest * -1 } )
     
       // Draw player cards
       val player-stacks = gui-state.draw-players( game-state.players, Nothing, maybe-incomes = Just( player-incomes ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       // Draw invest winner (or indicate that no one one)
-      val winner-text = match invest-result.winner-name
+      val winner-text = match winner-name
         Nothing -> "No one wins"
         Just( name ) -> name ++ " wins!"
       
@@ -577,16 +577,16 @@ pub fun show-invest-results( init-gui-state : guiState, game-state : gameState, 
 
   show-invest-results-r( init-gui-state )
 
-pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, player-name : string, attacker-card-idx : maybe<int> ) : <raylib-io, guiExit> (guiState, maybe<int>)
+fun get-attack-choice( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, playerMove)
   val padding = 25
-
-  // TODO: Make card-chooser return width and height so we can place elements around it
 
   val center-x = windowWidth / 2
   val center-y = windowHeight / 2
 
-  val attacker-name = game-state.attacker.gui/unjust( kk-line )
-  val choose-text = if attacker-name == player-name then "Choose attacker" else "Choose defender"
+  val attacker-name-str = match game-state.attacker-name
+    Just( s ) -> s
+
+  val choose-text = if attacker-name-str == player-name then "Choose attacker" else "Choose defender"
   val choose-font-size = 60
 
   val chooser-card-width = 300
@@ -595,8 +595,8 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
   val choose-text-y = 230
 
   val num-cards = game-state.get-player( player-name ).cards.length
-  val possible-cards = game-state.get-player( player-name ).cards.zip( list(0, num-cards - 1) ).filter( fn( (c,i) ){ 
-    if attacker-name == player-name then c.attacks > 0
+  val possible-cards = game-state.get-player( player-name ).cards.zip( list(0, num-cards - 1) ).filter( fn( (c,_) ){ 
+    if attacker-name-str == player-name then c.attacks > 0
     else c.defends > 0
   } ).map( fn( (c,i) ){ (c.ty,i) })
 
@@ -611,7 +611,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
   val pass-btn-pos = Rectangle( btn-x.float32, pass-btn-y.float32, btn-width.float32, btn-height.float32 )
   val choose-btn-pos = Rectangle( btn-x.float32, choose-btn-y.float32, btn-width.float32, btn-height.float32 )
 
-  fun get-attack-card-r( prev-gui-state : guiState, curr-card-idx : int )
+  fun get-attack-choice-r( prev-gui-state : guiState, curr-card-idx : int )
     if windowShouldClose() then exit()
     else
       val gui-state = prev-gui-state.update-mouse()
@@ -624,7 +624,7 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = game-state.attacker, attacker-card-idx = attacker-card-idx )
+      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = game-state.attacker-name, attacker-card-idx = game-state.attacker-card )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
@@ -648,15 +648,15 @@ pub fun get-attack-card( init-gui-state : guiState, game-state : gameState, play
 
       val new-gui-state = gui-state
 
-      if pass-clicked then (new-gui-state, Nothing)
+      if pass-clicked then (new-gui-state, Pass)
       else if choose-clicked then
         val (_, idx) = possible-cards[curr-card-idx].gui/unjust( kk-line )
-        (new-gui-state, Just( idx ))
-      else get-attack-card-r( new-gui-state, new-card-idx )
+        (new-gui-state, AttackMove( idx ))
+      else get-attack-choice-r( new-gui-state, new-card-idx )
 
-  get-attack-card-r( init-gui-state, 0 )
+  get-attack-choice-r( init-gui-state, 0 )
 
-pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, attack-results : list<attackResult>) : <raylib-io, guiExit> guiState
+fun show-attack-results( init-gui-state : guiState, game-state : gameState, attack-results : list<attackResult>) : <raylib-io, guiExit> guiState
   fun draw-result( gui-state : guiState, result : attackResult, pos-x : int, pos-y : int, card-tgt-width : int )
     val name-size = 44
     val player-text-width = measureText( result.player-name, name-size )
@@ -749,8 +749,8 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
 
   show-attack-results-r( init-gui-state )
 
-pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, maybe<cardType>)
-  if game-state.get-player( player-name ).buys == 0 then (init-gui-state, Nothing)
+fun get-buy-choice( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, playerMove)
+  if game-state.get-player( player-name ).buys == 0 then (init-gui-state, Pass)
   else
     val center-x = windowWidth / 2
     val center-y = windowHeight / 2
@@ -767,7 +767,7 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
     val pass-btn-pos = Rectangle( btn-x.float32, pass-btn-y.float32, btn-width.float32, btn-height.float32 )
     val choose-btn-pos = Rectangle( btn-x.float32, choose-btn-y.float32, btn-width.float32, btn-height.float32 )
 
-    fun get-buy-card-r( prev-gui-state : guiState, curr-card : maybe<cardType> )
+    fun get-buy-choice-r( prev-gui-state : guiState, curr-card : maybe<cardType> )
       if windowShouldClose() then exit()
       else
         val gui-state = prev-gui-state.update-mouse()
@@ -844,13 +844,16 @@ pub fun get-buy-card( init-gui-state : guiState, game-state : gameState, player-
         // TODO: Don't allow clicking choose if no card selected
         // TODO: Don't allow choosing cards with 0 stock.
 
-        if pass-clicked then (gui-state, curr-card)
-        else if choose-clicked then (new-gui-state, curr-card)
-        else get-buy-card-r( gui-state, new-card )
+        if pass-clicked then (gui-state, Pass)
+        else if choose-clicked then 
+          match curr-card
+            Nothing -> get-buy-choice-r( gui-state, curr-card )
+            Just( ty ) -> (new-gui-state, BuyMove( ty ))
+        else get-buy-choice-r( gui-state, new-card )
 
-    get-buy-card-r( init-gui-state, Nothing )
+    get-buy-choice-r( init-gui-state, Nothing )
 
-pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy-result : buyResult ) : <raylib-io, guiExit> guiState
+fun show-buy-results( init-gui-state : guiState, game-state : gameState, cards : list<maybe<cardType>>, conflicts : list<bool>, amts: list<int> ) : <raylib-io, guiExit> guiState
   fun show-buy-results-r( prev-gui-state : guiState )
     if windowShouldClose() then exit()
     else
@@ -864,7 +867,7 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-incomes = buy-result.purchase-amts.map( fn(x){ x * -1 })
+      val player-incomes = amts.map( fn(x){ x * -1 })
       val player-stacks = gui-state.draw-players( game-state.players, Nothing, Just( player-incomes ) )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
@@ -890,11 +893,11 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
         val name-x = center-x - center-x-offset + x + scaled.width / 2 - name-width / 2
         drawText( name, name-x, name-y, name-size, darkgray )
 
-        val highlight-color = if buy-result.purchase-conflict[i].gui/unjust( kk-line ) then red else white
+        val highlight-color = if conflicts[i].gui/unjust( kk-line ) then red else white
 
         val card-y = name-y + name-size + padding
         val card-x = center-x - center-x-offset + x
-        val card = buy-result.cards[i].gui/unjust( kk-line )
+        val card = cards[i].gui/unjust( kk-line )
         match card
           Nothing -> ()
           Just( ty ) ->
@@ -913,7 +916,7 @@ pub fun show-buy-results( init-gui-state : guiState, game-state : gameState, buy
 
   show-buy-results-r( init-gui-state )
 
-pub fun show-victory( init-gui-state : guiState, game-state : gameState ) : <raylib-io, guiExit> ()
+fun show-victory( init-gui-state : guiState, game-state : gameState ) : <raylib-io, guiExit> ()
   fun show-victory-r( prev-gui-state : guiState )
     if windowShouldClose() then exit()
     else
@@ -940,3 +943,19 @@ pub fun show-victory( init-gui-state : guiState, game-state : gameState ) : <ray
       show-victory-r( gui-state )
 
   show-victory-r( init-gui-state )
+
+// TODO: Do we need to return the gui state from this function? I think we just throw it away between phases.
+pub fun get-move( gui-state : guiState, game-state : gameState, player-idx : int ) : <raylib-io,guiExit> (guiState, playerMove)
+  val player-name = game-state.players[player-idx].unjust.name
+
+  match game-state.phase
+    Invest -> gui-state.get-invest( game-state, player-name )
+    Buy -> gui-state.get-buy-choice( game-state, player-name )
+    Attack -> gui-state.get-attack-choice( game-state, player-name )
+
+pub fun show-phase-results( gui-state : guiState, game-state : gameState, phase-result : phaseResult ) : <raylib-io,guiExit> guiState
+  match phase-result
+    IncomePhaseResult( incomes ) -> gui-state.show-income-results( game-state, incomes )
+    InvestPhaseResult( winner-name, investments ) -> gui-state.show-invest-results( game-state, winner-name, investments )
+    AttackPhaseResult( results ) -> gui-state.show-attack-results( game-state, results )
+    BuyPhaseResult( cards, conflicts, amts ) -> gui-state.show-buy-results( game-state, cards, conflicts, amts )
