@@ -204,8 +204,13 @@ pub struct playerCard
 pub fun playerCard/show( p : playerCard )
   "Type: " ++ p.ty.show ++ " Attacks: " ++ p.attacks.show ++ " Defends: " ++ p.defends.show
   
+pub type playerStatus
+  Playing
+  Defeated
+
 pub struct player
   name : string
+  status : playerStatus
   coins : int
   buys : int
   cards : list<playerCard>
@@ -284,7 +289,11 @@ fun remove-purchases( store : list<stock>, purchases : list<cardType> ) : pure l
 
 pub fun get-init-state( player-inits : list<playerInitInfo> )
   fun init-player( p : playerInitInfo )
-    Player(p.name, 0, 0, [PlayerCard(SorcerersStipend, 0, 0)])
+    Player(p.name,
+           Playing,
+           0, 
+           0, 
+           [PlayerCard(SorcerersStipend, 0, 0)])
 
   val players = player-inits.map( init-player )
   val stock = get-init-stock( player-inits.length )
@@ -388,9 +397,9 @@ pub fun resolve-invest( state : gameState, player-invests : list<int> ) : <pure>
       InvestResult( Just( winner-name ), player-invests ) )
 
 pub type attackOutcome
-  Okay
-  Fainted
-  Defeated
+  CardOkay
+  CardFainted
+  PlayerDefeated
 
 pub type attackRole
   Attacker
@@ -407,15 +416,15 @@ fun drop-idx( xs : list<a>, idx : int ) : pure list<a>
 
 fun resolve-outcome( x : maybe<cardType>, y : maybe<cardType> ) : pure attackOutcome
   match y
-    Nothing -> Okay
+    Nothing -> CardOkay
     Just( y-ty ) ->
       // Player didn't supply a card and is defeated
       match x
-        Nothing -> Defeated
+        Nothing -> PlayerDefeated
         Just( x-ty ) ->
           val (_, x-defense) = x-ty.get-card-stats()
           val (y-attack, _) = y-ty.get-card-stats()
-          if y-attack > x-defense then Fainted else Okay
+          if y-attack > x-defense then CardFainted else CardOkay
 
 // TODO: Add coins to players when shield of greed defends
 pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : pure (gameState, list<attackResult>)
@@ -435,7 +444,7 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
       val defender-choices = list(0, attack-cards.length - 1).map( get-choice-ty ).drop-idx( attacker-idx )
 
       val attacker-outcomes = defender-choices.map( fn( c ){ resolve-outcome( attacker-choice, c )})
-      val attacker-outcome = if attacker-outcomes.any( is-fainted ) then Fainted else Okay
+      val attacker-outcome = if attacker-outcomes.any( is-cardFainted ) then CardFainted else CardOkay
       resolve-outcomes( attacker-idx, curr-idx + 1, outcomes ++ [attacker-outcome])
     else
       val defender-choice = get-choice-ty( curr-idx )
@@ -460,7 +469,7 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
 
   fun remove-fainted-cards( p : player, o : attackOutcome, card-idx-maybe : maybe<int> )
     match o
-      Fainted ->
+      CardFainted ->
         match card-idx-maybe
           Just( idx ) ->
             val new-cards = p.cards.drop-idx( idx )
@@ -479,11 +488,12 @@ pub fun resolve-attack( state : gameState, attack-cards : list<maybe<int>> ) : p
 
   val players-attacks-updated = state.players.zip( attack-cards ).map( fn( (p,c) ){ update-card-attacks( get-role( p ), p, c) })
   val players-faints-updated = players-attacks-updated.zip( outcomes ).zip( attack-cards ).map( fn( ((p,o),c) ){ remove-fainted-cards( p, o, c )})
-  val remaining-players = players-faints-updated.zip( outcomes ).filter( fn( (p,o) ){ !o.is-defeated }).map( fn( (p,_) ){ p })
+  val remaining-players = players-faints-updated.zip( outcomes ).map( fn( (p,o) ){ if o.is-playerDefeated then p( status = Defeated ) else p })
 
   // Determine phase. Phase is attack if the attacking player has cards with
   // remaining attacks OR the attacker has passed.
-  val new-phase = if remaining-players.length == 1 then
+  val num-remaining-players = remaining-players.filter( fn(p){ p.status.is-playing } ).length
+  val new-phase = if num-remaining-players == 1 then
     Victory
   else
     match attacker-choice
@@ -549,7 +559,9 @@ pub fun resolve-buy( state : gameState, buy-cards : list<maybe<cardType>> ) : pu
   val max-points = victory-points.maximum
   val num-max = victory-points.filter( fn(p){ p == max-points }).length
   val has-victor = max-points > 7 && num-max == 1
-  val players-with-victor = if has-victor then players-updated.filter( fn(p){ p.get-victory-points == max-points }) else players-updated
+  val players-with-victor = if has-victor then 
+    players-updated.map( fn(p){ if p.get-victory-points == max-points then p else p( status = Defeated ) } ) 
+  else players-updated
 
   val next-phase = if has-victor then Victory
     else if players-updated.any( fn(x){ x.buys > 0 }) then Buy 

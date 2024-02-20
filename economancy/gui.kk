@@ -187,14 +187,36 @@ struct playerStackInfo
   name : string
   bounds : list<cardBounds>
 
-fun draw-player( gui-state : guiState,
-                 loc : playerLoc,
-                 player : player,
-                 active-player : maybe<string>,
-                 income : maybe<int>,
-                 attacker : maybe<string>,
-                 attacker-card-idx : maybe<int> ) : <raylib-io> playerStackInfo
-  val name-font-size = 36
+val player-name-font-size = 36
+
+fun draw-defeated-player( gui-state : guiState,
+                          loc : playerLoc,
+                          player : player ) : <raylib-io> ()
+  val (player-center-x, player-center-y) = get-player-coords( loc )
+
+  val padding = 5
+
+  val name-x = center-text( player-center-x, player.name, player-name-font-size )
+
+  val defeated-text = "DEFEATED"
+  val defeated-x = center-text( player-center-x, defeated-text, player-name-font-size )
+
+  val total-height = [player-name-font-size, padding, player-name-font-size].sum
+  val center-y-offset = total-height / 2
+
+  val name-y = player-center-y - center-y-offset
+  val defeated-y = name-y + player-name-font-size + padding 
+
+  drawText( player.name, name-x, name-y, player-name-font-size, darkgray )
+  drawText( defeated-text, defeated-x, defeated-y, player-name-font-size, red )
+
+fun draw-active-player( gui-state : guiState,
+                        loc : playerLoc,
+                        player : player,
+                        active-player : maybe<string>,
+                        income : maybe<int>,
+                        attacker : maybe<string>,
+                        attacker-card-idx : maybe<int> ) : <raylib-io> playerStackInfo
   val coins-font-size = 36
 
   val card-scaled = gui-state.scale-card( 100 )
@@ -206,22 +228,22 @@ fun draw-player( gui-state : guiState,
 
   val padding = 5
 
-  val name-x = center-text( player-center-x, player.name, name-font-size )
+  val name-x = center-text( player-center-x, player.name, player-name-font-size )
   val (stack-xs, stack-width) = center-cards( player-center-x, card-scaled.width, card-overlap, player.cards.length )
   val coins-x = center-text( player-center-x, coins-text, coins-font-size )
 
-  val player-height = [name-font-size, padding, card-scaled.height, padding, coins-font-size].sum
+  val player-height = [player-name-font-size, padding, card-scaled.height, padding, coins-font-size].sum
   val center-y-offset = player-height / 2
 
   val name-y = player-center-y - center-y-offset
-  val stack-y = name-y + padding + name-font-size
+  val stack-y = name-y + padding + player-name-font-size
   val coins-y = stack-y + padding + card-scaled.height
 
   val name-color = match active-player
     Nothing -> darkgray
     Just( n ) -> if n == player.name then green else darkgray
 
-  drawText( player.name, name-x, name-y, name-font-size, name-color )
+  drawText( player.name, name-x, name-y, player-name-font-size, name-color )
 
   val card-bounds = player.cards.zip( stack-xs ).map-indexed( fn( i, (c, x) ){
     val is-attacker = match attacker
@@ -258,15 +280,20 @@ fun draw-players( gui-state : guiState,
                   attacker : maybe<string> = Nothing,
                   attacker-card-idx : maybe<int> = Nothing ) : <raylib-io> list<playerStackInfo>
   val player-locs = [Bottom, Top, Left, Right]
+  val players-with-locs = players.zip( player-locs )
+
+  val defeated-players = players-with-locs.filter( fn( (p,l) ){ p.status.is-defeated })
+  defeated-players.map( fn( (p,l) ){ draw-defeated-player( gui-state, l, p ) })
+
+  val active-players = players-with-locs.filter( fn( (p,l) ){ p.status.is-playing })
 
   match maybe-incomes
     Just( incomes ) ->
-      val players-locs-incomes = zip( zip(players, player-locs), incomes )
-      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-player( gui-state, l, p, active-player, Just( i ), attacker, attacker-card-idx )})
+      val players-locs-incomes = active-players.zip( incomes )
+      val player-stacks = players-locs-incomes.map( fn( ((p,l),i) ){ draw-active-player( gui-state, l, p, active-player, Just( i ), attacker, attacker-card-idx )})
       player-stacks
     Nothing ->
-      val players-locs = zip( players, player-locs )
-      val player-stacks = players-locs.map( fn( (p,l) ){ draw-player( gui-state, l, p, active-player, Nothing, attacker, attacker-card-idx )})
+      val player-stacks = active-players.map( fn( (p,l) ){ draw-active-player( gui-state, l, p, active-player, Nothing, attacker, attacker-card-idx )})
       player-stacks
 
 effect guiExit
@@ -651,11 +678,11 @@ pub fun show-attack-results( init-gui-state : guiState, game-state : gameState, 
     // Defeated players never have a card.
     val bounds = match result.card
       Just( card-ty ) ->
-        val draw-color = if result.outcome.is-fainted then red else white
+        val draw-color = if result.outcome.is-cardFainted then red else white
         Just( CardBounds( gui-state.draw-card( card-ty, pos-x, card-y, card-scaled.width, draw-color ), card-ty ) )
       Nothing -> Nothing
     
-    if result.outcome.is-defeated then
+    if result.outcome.is-playerDefeated then
       val defeated-size = name-size - 5
       val defeated-x =  pos-x + (card-tgt-width / 2) - (measureText("DEFEATED", defeated-size) / 2)
       drawText( "DEFEATED", defeated-x, card-y, defeated-size, red )
@@ -895,18 +922,18 @@ pub fun show-victory( init-gui-state : guiState, game-state : gameState ) : <ray
       clearBackground( raywhite )
       beginDrawing()
 
-      val victor-name = game-state.players[0].unjust.name
+      gui-state.draw-players( game-state.players )
 
       val victor-size = 75
       val center-x = windowWidth / 2
       val center-y = windowHeight / 2
 
-      val victor-text = victor-name ++ " wins!"
+      val victory-text = "Victory!"
 
-      val center-x-offset = measureText( victor-text, victor-size ) / 2
+      val center-x-offset = measureText( victory-text, victor-size ) / 2
       val center-y-offset = victor-size / 2
 
-      drawText(victor-text, center-x - center-x-offset, center-y - center-y-offset, victor-size, darkgray)
+      drawText(victory-text, center-x - center-x-offset, center-y - center-y-offset, victor-size, darkgray)
 
       endDrawing()
 

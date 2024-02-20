@@ -12,13 +12,16 @@ fun get-invests( players : list<playerInitInfo>,
   match players
     Nil -> (gui-state, curr-invests)
     Cons( p, ps ) ->
-      match p.ty
-        Cpu ->
-          val i = get-invest( game-state, p.name, Random )
-          get-invests( ps, game-state, gui-state, curr-invests ++ [i] )
-        Human ->
-          val (new-gui-state, i) = gui-state.get-investment( game-state, p.name )
-          get-invests( ps, game-state, new-gui-state, curr-invests ++ [i] )
+      if game-state.get-player( p.name ).status.is-defeated then
+          get-invests( ps, game-state, gui-state, curr-invests ++ [0] )
+      else
+        match p.ty
+          Cpu ->
+            val i = get-invest( game-state, p.name, Random )
+            get-invests( ps, game-state, gui-state, curr-invests ++ [i] )
+          Human ->
+            val (new-gui-state, i) = gui-state.get-investment( game-state, p.name )
+            get-invests( ps, game-state, new-gui-state, curr-invests ++ [i] )
 
 fun get-attacks( players : list<playerInitInfo>,
                  game-state : gameState,
@@ -27,15 +30,18 @@ fun get-attacks( players : list<playerInitInfo>,
   match players
     Nil -> (gui-state, curr-attacks)
     Cons( p, ps ) ->
-      match p.ty
-        Cpu ->
-          val i = get-attack( game-state, p.name, Random )
-          get-attacks( ps, game-state, gui-state, curr-attacks ++ [i] )
-        Human ->
-          // Attacker choice is always first card in curr-attacks
-          val attacker-card-idx = if curr-attacks.length > 0 then curr-attacks[0].unjust else Nothing
-          val (new-gui-state, i) = gui-state.get-attack-card( game-state, p.name, attacker-card-idx )
-          get-attacks( ps, game-state, new-gui-state, curr-attacks ++ [i] )
+      if game-state.get-player( p.name ).status.is-defeated then
+          get-attacks( ps, game-state, gui-state, curr-attacks ++ [Nothing] )
+      else
+        match p.ty
+          Cpu ->
+            val i = get-attack( game-state, p.name, Random )
+            get-attacks( ps, game-state, gui-state, curr-attacks ++ [i] )
+          Human ->
+            // Attacker choice is always first card in curr-attacks
+            val attacker-card-idx = if curr-attacks.length > 0 then curr-attacks[0].unjust else Nothing
+            val (new-gui-state, i) = gui-state.get-attack-card( game-state, p.name, attacker-card-idx )
+            get-attacks( ps, game-state, new-gui-state, curr-attacks ++ [i] )
 
 fun get-buys( players : list<playerInitInfo>,
               game-state : gameState,
@@ -44,13 +50,16 @@ fun get-buys( players : list<playerInitInfo>,
   match players
     Nil -> (gui-state, curr-buys)
     Cons( p, ps ) ->
-      match p.ty
-        Cpu ->
-          val i = get-buy( game-state, p.name, Random )
-          get-buys( ps, game-state, gui-state, curr-buys ++ [i] )
-        Human ->
-          val (new-gui-state, i) = gui-state.get-buy-card( game-state, p.name )
-          get-buys( ps, game-state, new-gui-state, curr-buys ++ [i] )
+      if game-state.get-player( p.name ).status.is-defeated then
+          get-buys( ps, game-state, gui-state, curr-buys ++ [Nothing] )
+      else
+        match p.ty
+          Cpu ->
+            val i = get-buy( game-state, p.name, Random )
+            get-buys( ps, game-state, gui-state, curr-buys ++ [i] )
+          Human ->
+            val (new-gui-state, i) = gui-state.get-buy-card( game-state, p.name )
+            get-buys( ps, game-state, new-gui-state, curr-buys ++ [i] )
 
 // TODO: Maybe register handlers for getting player input?
 fun game-loop( player-info : list<playerInitInfo>, gui-state : guiState, game-state : gameState )
