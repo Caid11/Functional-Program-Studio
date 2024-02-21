@@ -140,14 +140,41 @@ static void kk_raylib_GuiSetStyle(kk_integer_t kk_rl_control, kk_integer_t kk_pr
 
     GuiSetStyle(control, property, value);
 }
-static bool kk_raylib_GuiButton(kk_raylib_raylib__rectangle kk_bounds, kk_string_t kk_text, kk_context_t* ctx) {
-    Rectangle bounds;
-    bounds.x = kk_raylib_raylib_rectangle_fs_x( kk_bounds, ctx );
-    bounds.y = kk_raylib_raylib_rectangle_fs_y( kk_bounds, ctx );
-    bounds.width = kk_raylib_raylib_rectangle_fs_width( kk_bounds, ctx );
-    bounds.height = kk_raylib_raylib_rectangle_fs_height( kk_bounds, ctx );
 
+static Rectangle kk_rectangle_from_kk(kk_raylib_raylib__rectangle kk_rectangle, kk_context_t* ctx) {
+    Rectangle rect;
+    rect.x = kk_raylib_raylib_rectangle_fs_x( kk_rectangle, ctx );
+    rect.y = kk_raylib_raylib_rectangle_fs_y( kk_rectangle, ctx );
+    rect.width = kk_raylib_raylib_rectangle_fs_width( kk_rectangle, ctx );
+    rect.height = kk_raylib_raylib_rectangle_fs_height( kk_rectangle, ctx );
+    return rect;
+}
+
+static bool kk_raylib_GuiButton(kk_raylib_raylib__rectangle kk_bounds, kk_string_t kk_text, kk_context_t* ctx) {
+    Rectangle bounds = kk_rectangle_from_kk(kk_bounds, ctx);
     const char* text = kk_string_cbuf_borrow(kk_text, NULL, ctx);
 
     return GuiButton(bounds, text);
+}
+
+static kk_std_core_types__tuple2 kk_raylib_GuiTextBox(kk_raylib_raylib__rectangle kk_bounds, kk_string_t kk_text, kk_integer_t kk_buffer_size, bool kk_edit_mode, kk_context_t* ctx) {
+    Rectangle bounds = kk_rectangle_from_kk(kk_bounds, ctx);
+
+    const char* text = kk_string_cbuf_borrow(kk_text, NULL, ctx);
+
+    int buffer_size = kk_integer_clamp32(kk_buffer_size, ctx);
+
+    char* buffer = (char*)malloc(buffer_size);
+    
+    int cpy_size = kk_integer_clamp32(kk_string_len_int( kk_text, ctx ), ctx);
+    if( cpy_size > buffer_size )
+        cpy_size = buffer_size;
+
+    strncpy(buffer, text, cpy_size);
+    buffer[cpy_size] = 0;
+
+    int is_clicked = GuiTextBox(bounds, buffer, buffer_size, kk_edit_mode);
+    kk_string_t new_text = kk_string_alloc_from_qutf8( buffer, ctx );
+
+    return kk_std_core_types__new_Tuple2(kk_string_box(new_text), kk_bool_box(is_clicked), ctx);
 }

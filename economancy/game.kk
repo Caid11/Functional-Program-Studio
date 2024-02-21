@@ -247,15 +247,6 @@ fun get-player( game-state : gameState, player-name : string )
 fun get-player-card( game-state : gameState, player-name : string, card-idx : int )
   game-state.get-player( player-name ).cards[card-idx].unjust
 
-// TODO: This shouldn't be in this module
-type playerType
-  Human
-  Cpu
-
-pub struct playerInitInfo
-  name : string
-  ty : playerType
-
 fun get-init-stock( num-players : int ) : pure list<stock>
   [
     Stock( Apprentice, num-players ),
@@ -290,16 +281,16 @@ fun remove-purchases( store : list<stock>, purchases : list<cardType> ) : pure l
     Nil -> store
     Cons( p, ps ) -> remove-purchases( remove-purchase( store, p ), ps )
 
-pub fun get-init-state( player-inits : list<playerInitInfo> )
-  fun init-player( p : playerInitInfo )
-    Player(p.name,
+pub fun get-init-state( player-names : list<string> )
+  val players = player-names.map( fn( name ){
+    Player(name,
            Playing,
            0, 
            0, 
            [PlayerCard(SorcerersStipend, 0, 0)])
-
-  val players = player-inits.map( init-player )
-  val stock = get-init-stock( player-inits.length )
+  })
+    
+  val stock = get-init-stock( player-names.length )
   GameState( Income, One, stock, players, Nothing, Nothing )
 
 fun get-card-income( player-coins : int, card : cardType, d : day )
@@ -415,6 +406,7 @@ pub type phaseResult
   InvestPhaseResult( winner-name : maybe<string>, investments : list<int> )
   AttackPhaseResult( results : list<attackResult> )
   BuyPhaseResult( cards : list<maybe<cardType>>, conflicts : list<bool>, amts : list<int> )
+  VictoryPhase
 
 pub fun resolve-current-phase( state : gameState ) : <pure, getPlayerMove> (gameState, phaseResult)
   val resolve-fn = match state.phase
@@ -422,6 +414,7 @@ pub fun resolve-current-phase( state : gameState ) : <pure, getPlayerMove> (game
     Invest -> resolve-invest
     Attack -> resolve-attack
     Buy -> resolve-buy
+    Victory -> fn( state ){ (state, VictoryPhase) }
 
   resolve-fn( state )
 

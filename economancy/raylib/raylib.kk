@@ -199,3 +199,9 @@ extern raylib-GuiButton( bounds : rectangle, text : string ) : raylib-io bool
 
 pub fun guiButton( bounds : rectangle, text : string ) : raylib-io bool
   raylib-GuiButton( bounds, text )
+
+extern raylib-GuiTextBox( bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool ) : raylib-io (string, bool)
+  c "kk_raylib_GuiTextBox"
+
+pub fun guiTextBox( bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool ) : raylib-io (string, bool)
+  raylib-GuiTextBox( bounds, text, buffer-size, edit-mode )

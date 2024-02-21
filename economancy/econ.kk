@@ -1,9 +1,11 @@
 import std/num/random
 
+import raylib/raylib
+
 import cpu-player
 import game
 import gui
-import raylib/raylib
+import player-info
 
 fun main()
   with ctl exit() { println("All done!") }
@@ -28,6 +30,7 @@ fun main()
     gui-state := gui-state.show-phase-results( game-state, phase-result )
     game-loop( new-game-state )
 
-  val game-state = get-init-state( player-info )
+  val player-names = player-info.map( name )
+  val game-state = get-init-state( player-names )
 
   game-loop( game-state )
