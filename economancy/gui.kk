@@ -367,7 +367,7 @@ fun collect-player-info( gui-state : guiState, num-humans : int, num-cpus : int 
       endDrawing()
 
       if next then
-        val player-types = list(1,num-humans).map( fn(_){ Human } ) ++ list(1,num-humans).map( fn(_){ Cpu(cpu-player/Random ) } )
+        val player-types = list(1,num-humans).map( fn(_){ Human } ) ++ list(1,num-cpus).map( fn(_){ Cpu(cpu-player/Random ) } )
         player-names.zip( player-types ).map( fn( (n,t) ){ PlayerInitInfo( n, t ) })
       else
         collect-player-info-r( new-names, new-text-box-states )
