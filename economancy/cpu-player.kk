@@ -20,7 +20,7 @@ fun get-invest( game-state : gameState, player-idx : int, s : strategy ) : <pure
 // TODO: Switch this from using maybe<int> to in (Sorcerer's Stipend represents no attack)
 fun get-attack( game-state : gameState, player-idx : int, s : strategy ) : <pure,random> playerMove
   match s
-    cpu-player/Pass -> game/Pass
+    cpu-player/Pass -> game/types/Pass
     Random ->
       val player = game-state.players[player-idx].unjust
       val is-attacker = match game-state.phase
@@ -41,14 +41,14 @@ fun get-attack( game-state : gameState, player-idx : int, s : strategy ) : <pure
 
 fun get-buy( game-state : gameState, player-idx : int, s : strategy ) : <pure,random> playerMove
   match s
-    cpu-player/Pass -> game/Pass
+    cpu-player/Pass -> game/types/Pass
     Random ->
       val player = game-state.players[player-idx].unjust
 
-      val available-stock = game-state.store.filter( fn(st){ st.remaining > 0})
-      val affordable-stock = available-stock.filter( fn(st){ st.card.get-price <= player.coins})
+      val available-stock : list<game/types/stock> = game-state.store.filter( fn(st){ st.remaining > 0})
+      val affordable-stock = available-stock.filter( fn(st){ st.stock/card.get-price <= player.coins})
 
-      if affordable-stock.length == 0 then game/Pass
+      if affordable-stock.length == 0 then game/types/Pass
       else
         val rand = random-float64()
         val choice-idx = int((affordable-stock.length - 1).float64 * rand)

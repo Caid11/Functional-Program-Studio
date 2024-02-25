@@ -804,7 +804,7 @@ fun get-attack-choice( init-gui-state : guiState, game-state : gameState, player
 
       val new-gui-state = gui-state
 
-      if pass-clicked then (new-gui-state, game/Pass)
+      if pass-clicked then (new-gui-state, game/types/Pass)
       else if choose-clicked then
         val (_, idx) = possible-cards[curr-card-idx].gui/unjust( kk-line )
         (new-gui-state, AttackMove( idx ))
@@ -1000,7 +1000,7 @@ fun get-buy-choice( init-gui-state : guiState, game-state : gameState, player-na
         // TODO: Don't allow clicking choose if no card selected
         // TODO: Don't allow choosing cards with 0 stock.
 
-        if pass-clicked then (gui-state, game/Pass)
+        if pass-clicked then (gui-state, game/types/Pass)
         else if choose-clicked then 
           match curr-card
             Nothing -> get-buy-choice-r( gui-state, curr-card )
