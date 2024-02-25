@@ -1,7 +1,7 @@
 pub type phase
   Income
   Invest
-  Attack
+  Attack( attacker-name : string, attacker-choice : maybe<int> )
   Buy
   Victory
 
@@ -9,18 +9,9 @@ pub fun phase/show( p : phase )
   match p
     Income -> "INCOME"
     Invest -> "INVEST"
-    Attack -> "ATTACK"
+    Attack( name, _ ) -> "ATTACK - " ++ name
     Buy -> "BUY"
     Victory -> "VICTORY"
-
-// TODO: This is specific to the assignment's API, and should probably be in its own module.
-pub fun string/phase( p : string )
-  match p
-    "income" -> Income
-    "investing" -> Invest
-    "attacking" -> Attack
-    "buy" -> Buy
-    "end" -> Victory
 
 pub type day
   One
@@ -227,13 +218,11 @@ pub struct gameState
   day : day
   store : list<stock>
   players : list<player>
-  attacker-name : maybe<string>
-  attacker-card : maybe<int>
 
 pub fun gameState/show( s : gameState )
-  val attacker-str = match s.attacker-name
-    Nothing -> "NONE"
-    Just( n ) -> n
+  val attacker-str = match s.phase
+    Attack( name, _ ) -> name
+    _ -> "NONE"
 
   "Phase: " ++ s.phase.show ++ 
     "\n\tDay: " ++ s.day.show ++ 
@@ -291,7 +280,7 @@ pub fun get-init-state( player-names : list<string> )
   })
     
   val stock = get-init-stock( player-names.length )
-  GameState( Income, One, stock, players, Nothing, Nothing )
+  GameState( Income, One, stock, players )
 
 fun get-card-income( player-coins : int, card : cardType, d : day )
   match card 
@@ -444,7 +433,7 @@ fun resolve-invest( state : gameState ) : <pure,getPlayerMove> (gameState, phase
     val (winner,_) = players-and-invests.find( fn( (p, i) ){ i == max-invest } ).unjust
     val winner-name = winner.player/name
 
-    (state( phase = Attack, players = new-players, attacker-name = Just( winner-name ) ),
+    (state( phase = Attack( winner-name, Nothing ), players = new-players ),
       InvestPhaseResult( Just( winner-name ), player-invests ) )
  
 fun drop-idx( xs : list<a>, idx : int ) : pure list<a>
@@ -464,12 +453,14 @@ fun resolve-outcome( x : maybe<cardType>, y : maybe<cardType> ) : pure attackOut
 
 // TODO: Add coins to players when shield of greed defends
 fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phaseResult)
-  val attacker-name = match state.attacker-name
-    Just( s ) -> s
+  val attacker-name = match state.phase
+    Attack( name, _ ) -> name
 
   val attacker-idx = state.players.index-of( fn( p ){ p.name == attacker-name } )
   val attacker-move = get-move( state, attacker-idx ).attack
-  val state-with-attack = state( attacker-card = attacker-move )
+
+  val attack-with-move = Attack( attacker-name, attacker-move )
+  val state-with-attack = state( phase = attack-with-move )
 
   fun get-choice-ty( player-idx, card-idx )
     match card-idx
@@ -542,11 +533,11 @@ fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phase
       Nothing -> Buy
       _ ->
         val has-attacks = players-attacks-updated[attacker-idx].unjust.cards.any( fn(c){ c.attacks > 0 })
-        if has-attacks then Attack else Buy
+        if has-attacks then Attack( attacker-name, Nothing ) else Buy
 
   val new-attacker-name = if new-phase.is-attack then Just( attacker-name ) else Nothing
 
-  (state( phase = new-phase, players = remaining-players, attacker-name = new-attacker-name, attacker-card = Nothing ), AttackPhaseResult( results ))
+  (state( phase = new-phase, players = remaining-players ), AttackPhaseResult( results ))
 
 
 fun resolve-buy( state : gameState ) : <pure,getPlayerMove> (gameState, phaseResult)

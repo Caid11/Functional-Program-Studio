@@ -23,9 +23,9 @@ fun get-attack( game-state : gameState, player-idx : int, s : strategy ) : <pure
     cpu-player/Pass -> game/Pass
     Random ->
       val player = game-state.players[player-idx].unjust
-      val is-attacker = match game-state.attacker-name
-        Nothing -> False
-        Just( attk-name ) -> attk-name == player.name
+      val is-attacker = match game-state.phase
+        Attack( attacker-name, _ ) -> attacker-name == player.name
+        _ -> False
 
       val cards-with-idxs = list(0, player.cards.length - 1).zip( player.cards )
       val playable-cards = cards-with-idxs.filter( fn( (_,c) ){ if is-attacker then c.attacks > 0 else c.defends > 0} )

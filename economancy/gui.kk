@@ -739,8 +739,8 @@ fun get-attack-choice( init-gui-state : guiState, game-state : gameState, player
   val center-x = windowWidth / 2
   val center-y = windowHeight / 2
 
-  val attacker-name-str = match game-state.attacker-name
-    Just( s ) -> s
+  val (attacker-name-str, attacker-choice) = match game-state.phase
+    Attack( name, choice ) -> (name, choice)
 
   val choose-text = if attacker-name-str == player-name then "Choose attacker" else "Choose defender"
   val choose-font-size = 60
@@ -780,7 +780,7 @@ fun get-attack-choice( init-gui-state : guiState, game-state : gameState, player
       draw-day( game-state.day )
     
       // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = game-state.attacker-name, attacker-card-idx = game-state.attacker-card )
+      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ), attacker = Just( attacker-name-str ), attacker-card-idx = attacker-choice )
       val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
 
       drawText( choose-text, choose-text-x, choose-text-y, choose-font-size, darkgray )
