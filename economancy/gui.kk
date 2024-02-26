@@ -42,6 +42,10 @@ pub struct guiState
   mode : guiMode
   cards : list<cardInfo>
   mouse : mouseState
+
+// NOTE: Hard-coding this avoids having to pass a guiState to do layout calculations
+// This is height / width
+val card-aspect-ratio = 1.36
   
 pub fun init-gui() : raylib-io guiState
   initWindow( windowWidth, windowHeight, "Economancy")
@@ -489,15 +493,15 @@ fun is-over( r : bounds, x-pos : int, y-pos : int ) : <> bool
 
   x-pos >= left && x-pos <= right && y-pos >= top && y-pos <= bottom
 
-fun is-clicked( r : rectangle, p : vector2 ) : <> bool
-  val left = r.x.float64
-  val right = r.x.float64 + r.width.float64
-  val top = r.y.float64
-  val bottom = r.y.float64 + r.height.float64
-
-  val pos-x = p.x.float64
-  val pos-y = p.y.float64
-  pos-x >= left && pos-x <= right && pos-y >= top && pos-y <= bottom
+// fun is-clicked( r : rectangle, p : vector2 ) : <> bool
+//   val left = r.x.float64
+//   val right = r.x.float64 + r.width.float64
+//   val top = r.y.float64
+//   val bottom = r.y.float64 + r.height.float64
+// 
+//   val pos-x = p.x.float64
+//   val pos-y = p.y.float64
+//   pos-x >= left && pos-x <= right && pos-y >= top && pos-y <= bottom
 
 fun card-chooser( gui-state : guiState,
                   possible-cards : list<(cardType,int)>,
@@ -609,79 +613,207 @@ fun show-income-results( init-gui-state : guiState, game-state : gameState, play
       else show-income-results-r( gui-state )
 
   show-income-results-r( init-gui-state )
+
+struct size2D
+  x : int
+  y : int
+
+struct guiPosition
+  x : int
+  y : int
+
+val text-input-padding = 10
+
+// TODO: Add card stack gui element
+type guiElementInfo
+  Text( size : int, text : string, col : color )
+  Button( size : size2D, text : string )
+  TextInput( size : size2D, label : string, text : string, max-len : int, is-active : bool )
+  Card( width : int, ty : cardType, tint-color : color )
+
+struct guiElement
+  id : string
+  pos : guiPosition
+  info : guiElementInfo
+
+fun height( element : guiElement ) : int
+  match element.info
+    Text( size, _, _ ) -> size
+    Button( size, _ ) -> size.y
+    TextInput( size, _, _, _, _ ) -> size.y
+    Card( width, _, _ ) -> int(width.float64 * card-aspect-ratio)
+
+fun width( element : guiElement ) : raylib-io int
+  match element.info
+    Text( size, text, _ ) -> measureText( text, size )
+    Button( size, _ ) -> size.x
+    TextInput( size, label, _, _, _ ) -> measureText( label, size.y ) + text-input-padding +  size.x
+    Card( width, _, _ ) -> width
+
+fun rect( pos : guiPosition, size : size2D) : rectangle
+  Rectangle( pos.x.float32, pos.y.float32, size.x.float32, size.y.float32 )
+
+type guiDrawResult
+  NoChange( element : guiElement )
+  Clicked( element : guiElement )
+  ActiveToggle( element : guiElement, is-active : bool )
+  TextChanged( element : guiElement, new-text : string )
+
+fun clicked( results : list<guiDrawResult>, clicked-id : string )
+  val clicked = results.find( fn(e){ 
+    match e
+      Clicked( element ) -> element.guiElement/id == clicked-id
+      _ -> False
+  })
+
+  clicked.is-just
+
+fun draw-gui( init-gui-state : guiState, elements : list<guiElement> ) : <raylib-io, guiExit> (guiState, list<guiDrawResult>)
+  if windowShouldClose() then exit()
+  else
+    clearBackground( raywhite )
+    beginDrawing()
+
+    val gui-state = init-gui-state.update-mouse()
+
+    val mouse-pressed = isMouseButtonPressed( mouseButtonLeft )
+
+    val draw-results = elements.map( fn(e){
+      match e
+        GuiElement( _, pos, Text( size, text, col ) ) ->
+          drawText( text, pos.x, pos.y, size, col )
+          NoChange( e )
+
+        GuiElement( _, pos, Button( size, text ) ) ->
+          val is-clicked = guiButton( rect( pos, size ), text )
+          if is-clicked then Clicked( e ) else NoChange( e )
+
+        GuiElement( _, pos, TextInput( size, label, text, max-len, is-active ) ) ->
+          // Draw text box label.
+          drawText( label, pos.x, pos.y, size.y, darkgray )
+          val x-offset = measureText( label, size.y ) + text-input-padding
+
+          // Text boxes are a little weird. They return true if they were
+          // clicked, enter was pressed while they were active, or if the user
+          // clicks outside of the input while the input is active.
+          //
+          // For our purposes, we can simply XOR the current active state with
+          // whether or not an event occured.
+          val textbox-pos = rect( GuiPosition( pos.x + x-offset, pos.y ), size )
+          val (new-text, textbox-evt) = guiTextBox( textbox-pos, text, max-len, is-active )
+          val new-active = textbox-evt != is-active
+          
+          if new-active != is-active then ActiveToggle( e, new-active )
+          else if new-text != text then TextChanged( e, new-text )
+          else NoChange( e )
+
+        GuiElement( _, pos, Card( width, ty, tint-color ) ) ->
+          val b = gui-state.draw-card( ty, pos.x, pos.y, width, tint-color )
+
+          if mouse-pressed && is-over( b, gui-state.mouse.last-x, gui-state.mouse.last-y ) then Clicked( e )
+          else NoChange( e )
+    })
+
+    // Draw hovered card, if applicable
+    if gui-state.mouse.frames-since-move >= mouse-over-frames then
+      val hovered-card = elements.find( fn(e){
+        match e
+          GuiElement( _, pos, Card( card-width, _, _ ) ) ->
+            val scaled = gui-state.scale-card( card-width )
+            val b = Bounds( pos.x, pos.y, scaled.width, scaled.height )
+            is-over( b, gui-state.mouse.last-x, gui-state.mouse.last-y )
+          _ -> False
+      })
+
+      match hovered-card
+        Nothing -> ()
+        Just( GuiElement( _, pos, Card( _, ty, _ ) ) ) -> gui-state.draw-mouse-over( ty, pos.x, pos.y )
+
+    else ()
+
+    endDrawing()
+
+    (gui-state, draw-results)
+
+alias guiRow = list<guiElement>
+
+val row-padding = 10
+
+fun center-rows( pos : guiPosition, y-pos : int, rows : list<guiRow>, centered-rows : list<guiRow> = [] )
+  match rows
+    Nil -> centered-rows
+    Cons( r, rs ) ->
+      val row-width = r.map( fn(e){ e.width }).sum + (r.length - 1) * row-padding
+      val center-row-x-offset = row-width / 2
+      val base-x = pos.x - center-row-x-offset
+
+      val max-height = r.map( fn(e){ e.height } ).maximum
+
+      fun center-elems( e : list<guiElement>, curr-x, centered-elems = [] )
+        match e
+          Nil -> centered-elems
+          Cons( x, xs ) -> 
+            val height-diff = max-height - x.height
+            val final-y = y-pos + height-diff / 2
+
+            val next-x = curr-x + x.width + row-padding
+
+            center-elems( xs, next-x, centered-elems ++ [x( pos = GuiPosition( curr-x, final-y ) )] )
+
+      center-rows( pos, y-pos + max-height + row-padding, rs, centered-rows ++ [center-elems( r, base-x )] )
+
+fun center-on-point( pos : guiPosition, rows : list<guiRow>) : raylib-io list<guiElement>
+  // Calculate y-offset to center all rows vertically
+  val max-heights = rows.map( fn( r ){
+    r.map( fn( e ){ e.height } ).maximum
+  } )
+  val total-height = max-heights.sum + row-padding * (max-heights.length - 1)
+  val center-all-y-offset = total-height / 2
+  val base-y = pos.y - center-all-y-offset
+
+  center-rows( pos, base-y, rows ).flatmap( fn(x){ x } )
       
 fun get-invest( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, playerMove)
   val padding = 25
 
-  val adjust-center-x = windowWidth / 2
-  val adjust-center-y = windowHeight / 2
+  val center-x = windowWidth / 2
+  val center-y = windowHeight / 2
+  val center = GuiPosition( center-x, center-y )
 
   val adjust-btn-width = 75
   val invest-font-size = adjust-btn-width
 
   val num-coins = game-state.get-player( player-name ).coins
 
+  val adjust-button-size = Size2D( 75, 75 )
+  val invest-button-size = Size2D( measureText("Invest", 75) + 50, 75 )
+
+  fun get-invest-elements( curr-invest : int )
+    center-on-point( center, [
+      [ 
+        GuiElement( "invest-down", GuiPosition(0,0), Button( adjust-button-size, "-" ) ) ,
+        GuiElement( "invest-lbl", GuiPosition(0,0), Text( invest-font-size, curr-invest.show, darkgray ) ),
+        GuiElement( "invest-up", GuiPosition(0,0), Button( adjust-button-size, "+" ) ),
+      ],
+
+      [ GuiElement( "invest-btn", GuiPosition(0,0), Button( invest-button-size, "Invest" ) ) ],
+    ])
+
+  // TODO: Get elements for players, day, and phase
+
   fun get-invest-r( prev-gui-state : guiState, curr-invest : int )
-    val adjust-down-x = 0
-    val invest-x = adjust-down-x + adjust-btn-width + padding
-    val adjust-up-x = invest-x + measureText( curr-invest.show, invest-font-size ) + padding
-    val total-width = adjust-up-x + adjust-btn-width
-    val center-x-offset = total-width / 2
+    val invest-gui = get-invest-elements( curr-invest )
+    val (new-gui-state, draw-results) = draw-gui( prev-gui-state, get-invest-elements( curr-invest ) )
 
-    val total-height = [adjust-btn-width, padding, adjust-btn-width].sum
-    val center-y-offset = total-height / 2
-
-    val adjust-down-pos = Rectangle( float32(adjust-center-x - center-x-offset + adjust-down-x),
-                                    float32(adjust-center-y - center-y-offset),
-                                    float32(adjust-btn-width),
-                                    float32(adjust-btn-width))
-
-    val invest-text-x = adjust-center-x - center-x-offset + invest-x
-    val invest-text-y = adjust-center-y - center-y-offset
-
-    val adjust-up-pos = Rectangle( float32(adjust-center-x - center-x-offset + adjust-up-x),
-                                    float32(adjust-center-y - center-y-offset),
-                                    float32(adjust-btn-width),
-                                    float32(adjust-btn-width))
-
-    val invest-btn-pos = Rectangle( float32(adjust-center-x - center-x-offset),
-                                    float32(adjust-center-y - center-y-offset + padding + adjust-btn-width),
-                                    float32(total-width),
-                                    float32(adjust-btn-width))
-
-    if windowShouldClose() then exit()
+    if draw-results.clicked( "invest-btn" ) then (new-gui-state, InvestMove( curr-invest ))
     else
-      val gui-state = prev-gui-state.update-mouse()
-
-      clearBackground( raywhite )
-      beginDrawing()
-
-      // Draw phase and day
-      draw-phase( game-state.phase )
-      draw-day( game-state.day )
-    
-      // Draw player cards
-      val player-stacks = gui-state.draw-players( game-state.players, active-player = Just( player-name ) )
-      val stack-bounds = player-stacks.flatmap( fn(s){ s.bounds })
-
-      // Draw invest controls
-      val down-clicked = guiButton( adjust-down-pos, "-" )
-      drawText( curr-invest.show, invest-text-x, invest-text-y, invest-font-size, darkgray )
-      val up-clicked = guiButton( adjust-up-pos, "+" )
-      val invest-clicked = guiButton( invest-btn-pos, "Invest" )
-
-      val new-invest = if down-clicked then
+      val new-invest = if draw-results.clicked( "invest-down" ) then
         [0, curr-invest - 1].maximum
-      else if up-clicked then
+      else if draw-results.clicked( "invest-up" ) then
         [num-coins, curr-invest + 1].minimum
       else curr-invest
 
-      gui-state.hover-card( stack-bounds )
-
-      endDrawing()
-
-      if invest-clicked then (gui-state, InvestMove( curr-invest ) )
-      else get-invest-r( gui-state, new-invest )
+      get-invest-r( new-gui-state, new-invest )
 
   get-invest-r( init-gui-state, 0 )
 
