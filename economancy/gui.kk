@@ -98,6 +98,15 @@ fun draw-day( game-day : day ) : raylib-io ()
   val day-text = "DAY " ++ game-day.show
   drawText( day-text, 25, 25, phase-day-size, darkgray )
 
+fun phase-element( game-phase : phase ) : raylib-io guiElement
+  val info = Text( phase-day-size, game-phase.show, darkgray )
+  val phase-x = windowWidth - info.width - 25
+  GuiElement( "phase", GuiPosition( phase-x, 25 ), info )
+
+fun day-element( game-day : day ) : raylib-io guiElement
+  val day-text = "DAY " ++ game-day.show
+  GuiElement( "day", GuiPosition( 25, 25 ), Text( phase-day-size, day-text, darkgray ) )
+
 fun center( container-width : int, object-width : int ) : int
   container-width / 2 - object-width / 2
 
@@ -301,6 +310,79 @@ fun draw-players( gui-state : guiState,
     Nothing ->
       val player-stacks = active-players.map( fn( (p,l) ){ draw-active-player( gui-state, l, p, active-player, Nothing, attacker, attacker-card-idx )})
       player-stacks
+
+fun get-player-card-colors( game-state : gameState,
+                            player : player )
+  val (is-attacker, attack-idx) = match game-state.phase
+    Attack( attacker, attacker-choice ) -> 
+      val is-attacker = attacker == player.name
+
+      val attack-idx = match attacker-choice
+        Nothing -> -1
+        Just( i ) -> if is-attacker then i else -1
+
+      (is-attacker, attack-idx)
+
+    _ -> (False, -1)
+  
+  fun is-tapped( card )
+    match game-state.phase
+      Attack( _, _ ) -> if is-attacker then card.attacks == 0 else card.defends == 0
+      _ -> False
+
+  player.cards.map-indexed( fn( i, c ){
+    if i == attack-idx then red
+    else
+      if is-tapped( c ) then gray else white
+  })
+
+fun get-player-elements( game-state : gameState,
+                         player : player,
+                         loc : playerLoc,
+                         is-active : bool,
+                         coin-change : int )
+  fun elem( id, e )
+    GuiElement( "player-" ++ player.show ++ "-" ++ id, GuiPosition(0,0), e )
+
+  val player-font-size = 36
+
+  val name-color = if is-active then green else darkgray
+  val player-name = elem( "name", Text( player-font-size, player.name, name-color ) )
+
+  val card-tys = player.cards.map( fn(c){ c.ty })
+  val card-colors = get-player-card-colors( game-state, player )
+  val card-stack = elem( "cards", CardStack( 100, 0.3, card-tys, card-colors ) )
+
+  val curr-coins = elem( "coins", Text(player-font-size, "Coins: " ++ player.coins.show, darkgray ) )
+  val coin-elems = if coin-change == 0 then [curr-coins]
+  else
+    val (changed-color, changed-sign) = if coin-change > 0 then (green, "+") else (red, "-")
+    val changed-coins = elem( "coins-changed", Text( player-font-size, "(" ++ changed-sign ++ coin-change.show ++ ")", changed-color ))
+    [curr-coins, changed-coins]
+
+  // TODO: Switch this to return guiPosition after refactor is complete
+  val (pos-x, pos-y) = loc.get-player-coords
+  val pos = GuiPosition( pos-x, pos-y )
+  center-on-point(pos, [
+    [player-name],
+    [card-stack],
+    coin-elems
+  ])
+    
+fun get-players-elements( game-state : gameState,
+                          active-player : maybe<string> = Nothing,
+                          maybe-coin-changes : maybe<list<int>> = Nothing )
+  val locs = [Bottom, Top, Left, Right]
+  val is-active = match active-player
+    Nothing -> game-state.players.map( fn(_){ False })
+    Just( n ) -> game-state.players.map( fn(p){ p.name == n })
+  val coin-changes = match maybe-coin-changes
+    Just( c ) -> c
+    Nothing -> game-state.players.map( fn(_){ 0 } )
+
+  game-state.players.zip( locs ).zip( is-active ).zip( coin-changes ).map( fn( (((p,l),a), c) ){
+    get-player-elements( game-state, p, l, a, c )
+  }).flatmap( fn(e){ e })
 
 effect guiExit
   ctl exit() : a
@@ -630,25 +712,30 @@ type guiElementInfo
   Button( size : size2D, text : string )
   TextInput( size : size2D, label : string, text : string, max-len : int, is-active : bool )
   Card( width : int, ty : cardType, tint-color : color )
+  CardStack( card-width : int, overlap : float64, tys : list<cardType>, tint-colors : list<color> )
 
 struct guiElement
   id : string
   pos : guiPosition
   info : guiElementInfo
 
-fun height( element : guiElement ) : int
-  match element.info
+fun height( info : guiElementInfo ) : int
+  match info
     Text( size, _, _ ) -> size
     Button( size, _ ) -> size.y
     TextInput( size, _, _, _, _ ) -> size.y
     Card( width, _, _ ) -> int(width.float64 * card-aspect-ratio)
+    CardStack( card-width, _, _, _ ) -> int(card-width.float64 * card-aspect-ratio)
 
-fun width( element : guiElement ) : raylib-io int
-  match element.info
+fun width( info : guiElementInfo ) : raylib-io int
+  match info
     Text( size, text, _ ) -> measureText( text, size )
     Button( size, _ ) -> size.x
     TextInput( size, label, _, _, _ ) -> measureText( label, size.y ) + text-input-padding +  size.x
     Card( width, _, _ ) -> width
+    CardStack( card-width, overlap, tys, _ ) ->
+      val overlap-amt = int(card-width.float64 * overlap)
+      card-width + overlap-amt * (tys.length - 1)
 
 fun rect( pos : guiPosition, size : size2D) : rectangle
   Rectangle( pos.x.float32, pos.y.float32, size.x.float32, size.y.float32 )
@@ -712,6 +799,17 @@ fun draw-gui( init-gui-state : guiState, elements : list<guiElement> ) : <raylib
 
           if mouse-pressed && is-over( b, gui-state.mouse.last-x, gui-state.mouse.last-y ) then Clicked( e )
           else NoChange( e )
+
+        GuiElement( _, pos, CardStack( card-width, overlap, tys, tint-colors ) ) ->
+          val overlap-amt = int(card-width.float64 * overlap)
+          val x-offsets = tys.map-indexed( fn( i, _ ){ i * overlap-amt })
+          val bounds = tys.zip( tint-colors ).map-indexed( fn( i, (ty,col) ){
+            val x-pos = pos.x + i * overlap-amt
+            gui-state.draw-card( ty, x-pos, pos.y, card-width, col )
+          } )
+
+          if mouse-pressed && bounds.any( fn( b ){ is-over( b, gui-state.mouse.last-x, gui-state.mouse.last-y ) }) then Clicked( e )
+          else NoChange( e )
     })
 
     // Draw hovered card, if applicable
@@ -743,20 +841,20 @@ fun center-rows( pos : guiPosition, y-pos : int, rows : list<guiRow>, centered-r
   match rows
     Nil -> centered-rows
     Cons( r, rs ) ->
-      val row-width = r.map( fn(e){ e.width }).sum + (r.length - 1) * row-padding
+      val row-width = r.map( fn(e){ e.info.width }).sum + (r.length - 1) * row-padding
       val center-row-x-offset = row-width / 2
       val base-x = pos.x - center-row-x-offset
 
-      val max-height = r.map( fn(e){ e.height } ).maximum
+      val max-height = r.map( fn(e){ e.info.height } ).maximum
 
       fun center-elems( e : list<guiElement>, curr-x, centered-elems = [] )
         match e
           Nil -> centered-elems
           Cons( x, xs ) -> 
-            val height-diff = max-height - x.height
+            val height-diff = max-height - x.info.height
             val final-y = y-pos + height-diff / 2
 
-            val next-x = curr-x + x.width + row-padding
+            val next-x = curr-x + x.info.width + row-padding
 
             center-elems( xs, next-x, centered-elems ++ [x( pos = GuiPosition( curr-x, final-y ) )] )
 
@@ -765,14 +863,14 @@ fun center-rows( pos : guiPosition, y-pos : int, rows : list<guiRow>, centered-r
 fun center-on-point( pos : guiPosition, rows : list<guiRow>) : raylib-io list<guiElement>
   // Calculate y-offset to center all rows vertically
   val max-heights = rows.map( fn( r ){
-    r.map( fn( e ){ e.height } ).maximum
+    r.map( fn( e ){ e.info.height } ).maximum
   } )
   val total-height = max-heights.sum + row-padding * (max-heights.length - 1)
   val center-all-y-offset = total-height / 2
   val base-y = pos.y - center-all-y-offset
 
   center-rows( pos, base-y, rows ).flatmap( fn(x){ x } )
-      
+ 
 fun get-invest( init-gui-state : guiState, game-state : gameState, player-name : string ) : <raylib-io, guiExit> (guiState, playerMove)
   val padding = 25
 
@@ -799,11 +897,14 @@ fun get-invest( init-gui-state : guiState, game-state : gameState, player-name :
       [ GuiElement( "invest-btn", GuiPosition(0,0), Button( invest-button-size, "Invest" ) ) ],
     ])
 
-  // TODO: Get elements for players, day, and phase
+  val phase-day-elements = [day-element( game-state.day ), phase-element( game-state.phase )]
+  val player-elements = get-players-elements( game-state, Just( player-name ) )
 
   fun get-invest-r( prev-gui-state : guiState, curr-invest : int )
-    val invest-gui = get-invest-elements( curr-invest )
-    val (new-gui-state, draw-results) = draw-gui( prev-gui-state, get-invest-elements( curr-invest ) )
+    val invest-gui-elements = get-invest-elements( curr-invest )
+    val all-gui-elements = phase-day-elements ++ player-elements ++ invest-gui-elements
+
+    val (new-gui-state, draw-results) = prev-gui-state.draw-gui( all-gui-elements )
 
     if draw-results.clicked( "invest-btn" ) then (new-gui-state, InvestMove( curr-invest ))
     else
