@@ -324,9 +324,6 @@ fun collect-player-info( gui-state : guiState, num-humans : int, num-cpus : int 
   val initial-text-box-states = initial-names.map( fn(_){ False })
   collect-player-info-r( gui-state, initial-names, initial-tys, initial-text-box-states )
 
-fun center-text( x-pos : int, text : string, font-size : int )
-  x-pos - text.measureText( font-size ) / 2
-
 fun get-player-counts( gui-state : guiState ) : <raylib-io, guiExit> (int, int)
   fun get-elements( curr-humans : int, curr-cpus : int)
     val title-elem = GuiElement( "title", GuiPosition(0,0), Text(150, "Economancy", darkgray) )
@@ -384,17 +381,6 @@ fun is-over( r : bounds, x-pos : int, y-pos : int ) : <> bool
   val bottom = r.y + r.height
 
   x-pos >= left && x-pos <= right && y-pos >= top && y-pos <= bottom
-
-fun next-btn() : raylib-io bool
-  val btn-width : float64 = 300.0
-  val btn-height : float64 = 150.0
-
-  val btn-x : float64 = windowWidth.float64 - btn-width - 25.0
-  val btn-y : float64 = windowHeight.float64 - btn-height - 25.0
-
-  val btn-pos = Rectangle( btn-x.float32, btn-y.float32, btn-width.float32, btn-height.float32 )
-
-  guiButton( btn-pos, "Next" )
 
 fun next-btn-element() : raylib-io guiElement
   val size = Size2D( 300, 200 )
