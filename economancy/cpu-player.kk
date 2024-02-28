@@ -9,6 +9,16 @@ type strategy
   Pass
   Random
 
+fun show( s : strategy )
+  match s
+    cpu-player/Pass -> "pass"
+    Random -> "random"
+
+fun (==)( x : strategy, y : strategy )
+  match x
+    cpu-player/Pass -> y.is-pass
+    Random -> y.is-random
+
 fun get-invest( game-state : gameState, player-idx : int, s : strategy ) : <pure,random> playerMove
   match s
     cpu-player/Pass -> InvestMove( 0 )

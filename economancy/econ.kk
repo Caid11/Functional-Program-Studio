@@ -22,8 +22,8 @@ fun main()
             val (new-gui-state, move) = gui-state.gui/get-move( game-state, player-idx )
             gui-state := new-gui-state
             resume(move)
-          Cpu ->
-            resume(get-cpu-move( game-state, player-idx, Random ))
+          Cpu( strat ) ->
+            resume(get-cpu-move( game-state, player-idx, strat ))
 
   fun game-loop( game-state : gameState )
     val (new-game-state, phase-result) = game-state.resolve-current-phase()

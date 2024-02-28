@@ -243,183 +243,139 @@ pub fun get-player-info( gui-state : guiState ) : <raylib-io, guiExit> list<play
   gui-state.collect-player-info( num-human-players, num-cpu-players )
 
 fun collect-player-info( gui-state : guiState, num-humans : int, num-cpus : int ) : <raylib-io, guiExit> list<playerInitInfo>
-  val interior-padding = 10
-  val exterior-padding = 25
+  val option-size = 80
 
-  val option-size = 60
-  val adjust-btn-size = option-size
-
-  val name-lbl = "Name: "
-  val name-lbl-width = measureText( name-lbl, option-size )
-  
   val max-name-length = 10
   val max-name-width = measureText( list(1,max-name-length).map( fn(_){ 'X' } ).string, option-size )
+
+  val input-size = Size2D( max-name-width, option-size)
+  val btn-size = Size2D( option-size, option-size)
+
+  fun get-player-info-elems( num : int, ty : playerType, name : string, is-active : bool )
+    val name-elem = GuiElement( "player-name-input-" ++ num.show, GuiPosition(0,0),
+                                TextInput( input-size, "Name: ", name, max-name-length, is-active ) )
+    val strategy-elems = match ty
+      Human -> []
+      Cpu( strategy ) -> [
+        GuiElement( "player-" ++ num.show ++ "-strategy-left", GuiPosition(0,0), Button(btn-size, "<")),
+        GuiElement( "player-" ++ num.show ++ "-strategy", GuiPosition(0,0), Text(option-size, strategy.show, darkgray)),
+        GuiElement( "player-" ++ num.show ++ "-strategy-right", GuiPosition(0,0), Button(btn-size, ">")),
+      ]
+    [[name-elem] ++ strategy-elems]
+
+  val next-btn-elem = next-btn-element()
   
-  val total-name-width = [name-lbl-width, interior-padding, max-name-width].sum
-  val name-center-x-offset = total-name-width / 2
+  fun collect-player-info-r( prev-gui-state : guiState, player-names : list<string>, player-tys : list<playerType>, text-box-states : list<bool> )
+    val gui-elements = player-names.zip( player-tys ).zip( text-box-states ).map-indexed( fn( i, ((name, ty), tbox-state)){
+      get-player-info-elems( i, ty, name, tbox-state )
+    }).flatmap( fn(x){ x })
 
-  val center-x = windowWidth / 2
-  val center-y = windowHeight / 2
+    val centered = center-on-point( windowCenter, gui-elements )
+    val (new-gui-state, draw-results) = prev-gui-state.draw-gui( centered ++ [next-btn-elem] )
 
-  val name-lbl-x = center-x - name-center-x-offset
-  val name-input-x = name-lbl-x + name-lbl-width + interior-padding
+    val new-names = draw-results.filter-map( fn(r){
+      match r
+        NoChange( GuiElement( _, _, TextInput(_, _, text, _, _))) -> Just( text )
+        ActiveToggle( GuiElement( _, _, TextInput(_, _, text, _, _)), _ ) -> Just( text )
+        TextChanged( GuiElement( _, _, TextInput(_, _, _, _, _)), text ) -> Just( text )
+        _ -> Nothing
+    })
+    val new-actives = draw-results.filter-map( fn(r){
+      match r
+        NoChange( GuiElement( _, _, TextInput(_, _, text, _, is-active))) -> Just( is-active )
+        ActiveToggle( GuiElement( _, _, TextInput(_, _, text, _, _)), is-active ) -> Just( is-active )
+        TextChanged( GuiElement( _, _, TextInput(_, _, text, _, is-active)), _ ) -> Just( is-active )
+        _ -> Nothing
+    })
 
-  // TODO: Allow selecting different CPU strategies.
+    val strategies = [cpu-player/Pass, cpu-player/Random]
 
-  fun human-info( y-pos : int, name : string, active : bool )
-    drawText( name-lbl, name-lbl-x, y-pos, option-size, darkgray)
+    fun prev-strategy( s : strategy)
+      val prev-idx = strategies.index-of( fn(strat){ strat == s } )
+      val new-idx =
+        if prev-idx <= 0 then strategies.length - 1
+        else prev-idx - 1
+      strategies[new-idx].unjust
 
-    val input-pos = Rectangle( name-input-x.float32, y-pos.float32, max-name-width.float32, option-size.float32)
-    guiTextBox( input-pos, name, max-name-length, active )
+    fun next-strategy( s : strategy )
+      val prev-idx = strategies.index-of( fn(strat){ strat == s } )
+      val new-idx =
+        if prev-idx == strategies.length - 1 then 0
+        else prev-idx + 1
+      strategies[new-idx].unjust
 
-  val total-height = (num-humans + num-cpus) * (option-size + exterior-padding)
-  val center-y-offset = total-height / 2
+    val new-tys = player-tys.map-indexed( fn(i, ty){
+      match ty
+        Human -> Human
+        Cpu( s ) ->
+          if draw-results.clicked( "player-" ++ i.show ++ "-strategy-left" ) then Cpu( prev-strategy( s ) )
+          else if draw-results.clicked( "player-" ++ i.show ++ "-strategy-right" ) then Cpu( next-strategy( s ) )
+          else ty 
+    })
 
-  fun collect-player-info-r( player-names : list<string>, text-box-states : list<bool> )
-    if windowShouldClose() then exit()
+    if draw-results.clicked( next-btn-elem.id ) then
+      new-names.zip( new-tys ).map( fn( (n,t) ){ PlayerInitInfo(n, t)})
     else
-      clearBackground( raywhite )
-      beginDrawing()
+      collect-player-info-r( gui-state, new-names, new-tys, new-actives)
 
-      val num-players = num-humans + num-cpus
-      val base-y = center-y - center-y-offset
-      val y-positions = list(0, num-players - 1).map( fn(x){ center-y + x * (option-size + exterior-padding)})
-
-      val new-name-res = player-names.zip( y-positions ).map-indexed( fn( i, (n,p) ){ 
-        val active = match text-box-states[i]
-          Just( a ) -> a
-
-        human-info( p, n, active )
-      })
-
-      val text-box-res = new-name-res.map( fn( (_,c) ){ c })
-      val new-text-box-states = text-box-states.zip( text-box-res ).map( fn( (x,y) ){ 
-        if x == y then False else True
-       })
-
-      val new-names = new-name-res.map( fn( (n,_) ){ n })
-
-      val next = next-btn()
-
-      endDrawing()
-
-      if next then
-        val player-types = list(1,num-humans).map( fn(_){ Human } ) ++ list(1,num-cpus).map( fn(_){ Cpu(cpu-player/Random ) } )
-        player-names.zip( player-types ).map( fn( (n,t) ){ PlayerInitInfo( n, t ) })
-      else
-        collect-player-info-r( new-names, new-text-box-states )
 
   val initial-names = ["Alice", "Bob", "Charlie", "Diane"].take( num-humans + num-cpus )
+  val initial-tys = list(1, num-humans).map( fn(_){ Human }) ++ list(1,num-cpus).map( fn(_){ Cpu( cpu-player/Pass )})
   val initial-text-box-states = initial-names.map( fn(_){ False })
-  collect-player-info-r( initial-names, initial-text-box-states )
+  collect-player-info-r( gui-state, initial-names, initial-tys, initial-text-box-states )
 
 fun center-text( x-pos : int, text : string, font-size : int )
   x-pos - text.measureText( font-size ) / 2
 
 fun get-player-counts( gui-state : guiState ) : <raylib-io, guiExit> (int, int)
-  val title-size = 100
-  val option-size = 60
-  val adjust-btn-size = option-size
+  fun get-elements( curr-humans : int, curr-cpus : int)
+    val title-elem = GuiElement( "title", GuiPosition(0,0), Text(150, "Economancy", darkgray) )
 
-  val title-str = "Economancy"
-  val human-players-str = "Number of human players: "
-  val cpu-players-str = "Number of CPU players: "
+    val option-size = 80
+    val adj-btn-size = Size2D( option-size, option-size )
 
-  val padding = 25
+    val human-players-elements = [
+      GuiElement( "human-players-lbl", GuiPosition(0,0), Text(option-size, "Number of human players:", darkgray) ),
+      GuiElement( "human-players-down", GuiPosition(0,0), Button(adj-btn-size, "-") ),
+      GuiElement( "human-players-curr", GuiPosition(0,0), Text(option-size, curr-humans.show, darkgray) ),
+      GuiElement( "human-players-up", GuiPosition(0,0), Button(adj-btn-size, "+") ),
+    ]
 
-  val center-x = windowWidth / 2
-  val center-y = windowHeight / 2
+    val cpu-players-elements = [
+      GuiElement( "cpu-players-lbl", GuiPosition(0,0), Text(option-size, "Number of cpu players:", darkgray) ),
+      GuiElement( "cpu-players-down", GuiPosition(0,0), Button(adj-btn-size, "-") ),
+      GuiElement( "cpu-players-curr", GuiPosition(0,0), Text(option-size, curr-cpus.show, darkgray) ),
+      GuiElement( "cpu-players-up", GuiPosition(0,0), Button(adj-btn-size, "+") ),
+    ]
 
-  val total-height = [title-size,padding,option-size,padding,option-size].sum
-  val center-y-offset = total-height / 2
+    center-on-point( windowCenter, [
+      [title-elem],
+      human-players-elements,
+      cpu-players-elements
+    ])
 
-  val title-y = center-y - center-y-offset
-  val human-players-y = title-y + title-size + padding
-  val cpu-players-y = human-players-y + option-size + padding
+  val next-btn-elem = next-btn-element()
 
-  val title-x = center-text( center-x, title-str, title-size )
+  fun get-player-counts-r( prev-gui-state : guiState, num-humans : int, num-cpus : int )
+    val gui-elements = get-elements( num-humans, num-cpus ) ++ [next-btn-elem]
+    val (new-gui-state, draw-results) = prev-gui-state.draw-gui( gui-elements )
 
-  val max-num-string-width = measureText("4", option-size)
+    val curr-num-players = num-humans + num-cpus
 
-  val human-str-width = measureText(human-players-str, option-size)
-  val human-players-width = [human-str-width, padding, adjust-btn-size, padding, max-num-string-width, padding, adjust-btn-size].sum
-  val human-players-center-x-offset = human-players-width / 2
+    val new-num-humans =
+      if draw-results.clicked( "human-players-down") && curr-num-players > 2 && num-humans > 0 then num-humans - 1
+      else if draw-results.clicked( "human-players-up") && curr-num-players < 4 && num-humans < 4 then num-humans + 1
+      else num-humans
 
-  val human-players-x = center-x - human-players-center-x-offset
+    val new-num-cpus =
+      if draw-results.clicked( "cpu-players-down") && curr-num-players > 2 && num-cpus > 0 then num-cpus - 1
+      else if draw-results.clicked( "cpu-players-up") && curr-num-players < 4 && num-cpus < 4 then num-cpus + 1
+      else num-cpus
 
-  val human-adj-down-x = human-players-x + human-str-width + padding
-  val human-adj-down-pos = Rectangle( float32( human-adj-down-x ),
-                                      float32( human-players-y ),
-                                      float32( adjust-btn-size ),
-                                      float32( adjust-btn-size ))
-
-  val human-num-x = human-adj-down-x + adjust-btn-size + padding
-
-  val human-adj-up-x = human-num-x + max-num-string-width + padding
-  val human-adj-up-pos = Rectangle( float32( human-adj-up-x ),
-                                    float32( human-players-y ),
-                                    float32( adjust-btn-size ),
-                                    float32( adjust-btn-size ))
-
-  val cpu-str-width = measureText(cpu-players-str, option-size)
-  val cpu-players-width = [cpu-str-width, padding, adjust-btn-size, padding, max-num-string-width, padding, adjust-btn-size].sum
-  val cpu-players-center-x-offset = cpu-players-width / 2
-
-  val cpu-players-x = center-x - cpu-players-center-x-offset
-
-  val cpu-adj-down-x = cpu-players-x + cpu-str-width + padding
-  val cpu-adj-down-pos = Rectangle( float32( cpu-adj-down-x ),
-                                    float32( cpu-players-y ),
-                                    float32( adjust-btn-size ),
-                                    float32( adjust-btn-size ))
-
-  val cpu-num-x = cpu-adj-down-x + adjust-btn-size + padding
-
-  val cpu-adj-up-x = cpu-num-x + max-num-string-width + padding
-  val cpu-adj-up-pos = Rectangle( float32( cpu-adj-up-x ),
-                                  float32( cpu-players-y ),
-                                  float32( adjust-btn-size ),
-                                  float32( adjust-btn-size ))
-
-  fun get-player-counts-r( num-humans : int, num-cpus : int )
-    if windowShouldClose() then exit()
-    else
-      clearBackground( raywhite )
-      beginDrawing()
-
-      drawText( title-str, title-x, title-y, title-size, darkgray)
-
-      drawText( human-players-str, human-players-x, human-players-y, option-size, darkgray)
-      val adj-human-down = guiButton( human-adj-down-pos, "-" )
-      drawText( num-humans.show, human-num-x, human-players-y, option-size, darkgray)
-      val adj-human-up = guiButton( human-adj-up-pos, "+" )
-
-      drawText( cpu-players-str, cpu-players-x, cpu-players-y, option-size, darkgray)
-      val adj-cpu-down = guiButton( cpu-adj-down-pos, "-" )
-      drawText( num-cpus.show, cpu-num-x, cpu-players-y, option-size, darkgray)
-      val adj-cpu-up = guiButton( cpu-adj-up-pos, "+" )
-
-      val curr-num-players = num-humans + num-cpus
-
-      val new-num-humans =
-        if adj-human-down && curr-num-players > 2 then num-humans - 1
-        else if adj-human-up && curr-num-players < 4 then num-humans + 1
-        else num-humans
-
-      val new-num-cpus =
-        if adj-cpu-down && curr-num-players > 2 then num-cpus - 1
-        else if adj-cpu-up && curr-num-players < 4 then num-cpus + 1
-        else num-cpus
-
-      val next = next-btn()
-
-      endDrawing()
-
-      if next then (num-humans, num-cpus)
-      else
-        get-player-counts-r( new-num-humans, new-num-cpus )
-
-  get-player-counts-r( 1, 1 )
+    if draw-results.clicked( next-btn-elem.id ) then (num-humans, num-cpus)
+    else get-player-counts-r( new-gui-state, new-num-humans, new-num-cpus )
+  
+  get-player-counts-r( gui-state, 1, 1 )
 
 fun is-over( r : bounds, x-pos : int, y-pos : int ) : <> bool
   val left = r.x
