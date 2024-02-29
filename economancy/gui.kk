@@ -788,7 +788,9 @@ fun show-attack-results( init-gui-state : guiState, game-state : gameState, atta
   val result-elems = center-on-point( windowCenter, [[attacker-elem, vs-text] ++ defender-elems])
 
   val phase-day-elements = [day-element( game-state.day ), phase-element( game-state.phase )]
-  val player-elements = get-players-elements( game-state )
+
+  val player-incomes = attack-results.map( fn(r){ r.income })
+  val player-elements = get-players-elements( game-state, Nothing, Just( player-incomes ) )
 
   val next-btn-elem = next-btn-element()
   
@@ -841,7 +843,7 @@ fun get-buy-choice( init-gui-state : guiState, game-state : gameState, player-na
     ]
 
     val phase-day-elements = [day-element( game-state.day ), phase-element( game-state.phase )]
-    val player-elements = get-players-elements( game-state )
+    val player-elements = get-players-elements( game-state, Just( player-name ) )
 
     fun get-buy-choice-r( prev-gui-state : guiState, curr-card : maybe<cardType> )
       val all-elems = center-on-point( windowCenter, get-buy-elems( curr-card, game-state.store ) ) ++ button-elems ++ phase-day-elements ++ player-elements

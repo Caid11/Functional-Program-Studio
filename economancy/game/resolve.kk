@@ -136,10 +136,20 @@ fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phase
     if p.name == attacker-name then Attacker
     else Defender
 
-  val results = state.players.zip( all-choices ).zip( outcomes ).map( fn( ((p,c),o) ){ AttackResult(p.name, get-role( p ), c, o)} )
+  val results = state.players.zip( all-choices ).zip( outcomes ).map( fn( ((p,c),o) ){
+    val income = match get-role( p )
+      Attacker -> 0
+      Defender ->
+        match c
+          Just( ShieldOfGreed ) -> 1
+          _ -> 0
+      
+    AttackResult(p.name, get-role( p ), c, o, income)
+  })
 
   val players-attacks-updated = state.players.zip( all-moves ).map( fn( (p,c) ){ update-card-attacks( get-role( p ), p, c) })
-  val players-faints-updated = players-attacks-updated.zip( outcomes ).zip( all-moves ).map( fn( ((p,o),c) ){ remove-fainted-cards( p, o, c )})
+  val players-coins-updated = players-attacks-updated.zip( results ).map( fn( (p,r) ){ p( coins = p.coins + r.income )})
+  val players-faints-updated = players-coins-updated.zip( outcomes ).zip( all-moves ).map( fn( ((p,o),c) ){ remove-fainted-cards( p, o, c )})
   val remaining-players = players-faints-updated.zip( outcomes ).map( fn( (p,o) ){ if o.is-playerDefeated then p( status = Defeated ) else p })
 
   // Determine phase. Phase is attack if the attacking player has cards with

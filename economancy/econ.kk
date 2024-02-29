@@ -15,15 +15,20 @@ fun main()
 
   // TODO: Call WindowClose
   with ctl get-move( game-state : gameState, player-idx : int )
-    match player-info[player-idx]
-      Just( PlayerInitInfo( _, ty ) ) ->
-        match ty
-          Human ->
-            val (new-gui-state, move) = gui-state.gui/get-move( game-state, player-idx )
-            gui-state := new-gui-state
-            resume(move)
-          Cpu( strat ) ->
-            resume(get-cpu-move( game-state, player-idx, strat ))
+    match game-state.players[player-idx]
+      Just( player ) ->
+        match player.status
+          Defeated -> resume(game/types/Pass)
+          _ ->
+            match player-info[player-idx]
+              Just( PlayerInitInfo( _, ty ) ) ->
+                match ty
+                  Human ->
+                    val (new-gui-state, move) = gui-state.gui/get-move( game-state, player-idx )
+                    gui-state := new-gui-state
+                    resume(move)
+                  Cpu( strat ) ->
+                    resume(get-cpu-move( game-state, player-idx, strat ))
 
   fun game-loop( game-state : gameState )
     val (new-game-state, phase-result) = game-state.resolve-current-phase()

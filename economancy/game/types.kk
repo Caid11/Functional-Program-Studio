@@ -26,6 +26,7 @@ pub struct attackResult
   role : attackRole
   card : maybe<cardType>
   outcome : attackOutcome
+  income : int
  
 pub type phaseResult
   IncomePhaseResult( incomes : list<int> )
