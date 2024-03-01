@@ -36,51 +36,6 @@ pub fun show( ty : cardType )
     WallOfWealth -> "Wall of Wealth"
     Worker -> "Worker"
 
-pub fun (==)( x : cardType, y : cardType )
-  match x
-    SorcerersStipend -> match y
-      SorcerersStipend -> True
-      _ -> False
-    Apprentice -> match y
-      Apprentice -> True
-      _ -> False
-    BoardOfMonopoly -> match y
-      BoardOfMonopoly -> True
-      _ -> False
-    Bubble -> match y
-      Bubble -> True
-      _ -> False
-    Ghost -> match y
-      Ghost -> True
-      _ -> False
-    GoldFish -> match y
-      GoldFish -> True
-      _ -> False
-    Golem -> match y
-      Golem -> True
-      _ -> False
-    Incantation -> match y
-      Incantation -> True
-      _ -> False
-    MagicBeanStock -> match y
-      MagicBeanStock -> True
-      _ -> False
-    SeniorWorker -> match y
-      SeniorWorker -> True
-      _ -> False
-    ShieldOfGreed -> match y
-      ShieldOfGreed -> True
-      _ -> False
-    Thug -> match y
-      Thug -> True
-      _ -> False
-    WallOfWealth -> match y
-      WallOfWealth -> True
-      _ -> False
-    Worker -> match y
-      Worker -> True
-      _ -> False
-
 pub fun get-price( ty : cardType ) : pure int
   match ty
     Apprentice -> 3

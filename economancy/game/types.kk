@@ -73,6 +73,13 @@ pub struct playerCard
 pub type playerStatus
   Playing
   Defeated
+  Disqualified
+
+pub fun playerStatus/show( s : playerStatus )
+  match s
+    Playing -> "playing"
+    Defeated -> "defeated"
+    Disqualified -> "disqualified"
 
 pub struct player
   name : string
@@ -128,3 +135,89 @@ pub fun playerMove/buy( p : playerMove )
     Pass -> Nothing
     BuyMove( ty ) -> Just( ty )
 
+pub fun phase/(==)( x : phase, y : phase ) : bool
+  match x
+    Income -> y.is-income
+    Invest -> y.is-invest
+    Attack( x-name, x-choice ) ->
+      match y
+        Attack( y-name, y-choice ) -> x-name == y-name && x-choice == y-choice
+        _ -> False
+    Buy -> y.is-buy
+    Victory -> y.is-victory
+
+pub fun phase/(!=)( x : phase, y : phase ) : bool
+  !(x == y)
+
+pub fun day/(==)( x : day, y : day ) : bool
+  match x
+    One -> y.is-one
+    Two -> y.is-two
+    Three -> y.is-three
+
+pub fun day/(!=)( x : day, y : day ) : bool
+  !(x == y)
+
+pub fun stock/(==)( x : stock, y : stock ) : bool
+  x.card == y.card && x.remaining == y.remaining
+
+pub fun stock/(!=)( x : stock, y : stock ) : bool
+  !(x == y)
+
+pub fun playerStatus/(==)( x : playerStatus, y : playerStatus ) : bool
+  match x
+    Playing -> y.is-playing
+    Defeated -> y.is-defeated
+    Disqualified -> y.is-disqualified
+
+pub fun playerStatus/(!=)( x : playerStatus, y : playerStatus ) : bool
+  !(x == y)
+
+pub fun cardType/(==)( x : cardType, y : cardType ) : bool
+  match x
+    SorcerersStipend -> y.is-sorcerersStipend
+    Apprentice -> y.is-apprentice
+    BoardOfMonopoly -> y.is-boardOfMonopoly
+    Bubble -> y.is-bubble
+    Ghost -> y.is-ghost
+    GoldFish -> y.is-goldFish
+    Golem -> y.is-golem
+    Incantation -> y.is-incantation
+    MagicBeanStock -> y.is-magicBeanStock
+    SeniorWorker -> y.is-seniorWorker
+    ShieldOfGreed -> y.is-shieldOfGreed
+    Thug -> y.is-thug
+    WallOfWealth -> y.is-wallOfWealth
+    Worker -> y.is-worker
+
+pub fun cardType/(!=)( x : cardType, y : cardType ) : bool
+  !(x == y)
+
+pub fun playerCard/(==)( x : playerCard, y : playerCard ) : bool
+  if x.ty != y.ty then False
+  else if x.attacks != y.attacks then False
+  else if x.defends != y.defends then False
+  else True
+
+pub fun player/(==)( x : player, y : player ) : bool
+  if x.name != y.name then False
+  else if x.status != y.status then False
+  else if x.coins != y.coins then False
+  else if x.buys != y.buys then False
+  else if x.cards.zip( y.cards ).any( fn( (x-c, y-c) ){ x-c != y-c }) then False
+  else True
+
+pub fun player/(!=)( x : player, y : player ) : bool
+  !(x == y)
+
+pub fun gameState/(==)( x : gameState, y : gameState ) : bool
+  if x.phase != y.phase then False
+  else if x.day != y.day then False
+  else if x.store.length != y.store.length then False
+  else if x.store.zip( y.store ).any( fn( (s-x, s-y) ){ s-x != s-y }) then False
+  else if x.players.length != y.players.length then False
+  else if x.players.zip( y.players ).any( fn( (p-x, p-y) ){ p-x != p-y }) then False
+  else True
+
+pub fun gameState/(!=)( x : gameState, y : gameState )
+  !(x == y)

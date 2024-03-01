@@ -36,11 +36,21 @@ fun resolve-income( state : gameState ) : <pure> (gameState, phaseResult)
   val new-state = state( phase = Invest, players = new-players )
   (new-state, IncomePhaseResult( incomes ))
 
-fun resolve-invest( state : gameState ) : <pure,getPlayerMove> (gameState, phaseResult)
-  val players-and-invests = state.players.map-indexed( fn(i,p){ (p, get-move( state, i ).invest) })
-  val new-players = players-and-invests.map( fn( (p,i) ) { p( coins = p.coins - i) })
+fun is-legal-invest( p : player, invest : int ) : bool
+  invest >= 0 && invest <= p.coins
 
+fun resolve-invest( state : gameState ) : <pure,getPlayerMove> (gameState, phaseResult)
+  val players-and-invests = state.players.map-indexed( fn(i,p){
+    val investment = get-move( state, i ).invest
+    if is-legal-invest( p, investment ) then
+      (p( coins = p.coins - investment ), investment)
+    else
+      (p( status = Disqualified), 0)
+  })
+
+  val new-players = players-and-invests.map( fn( (p,_) ) { p })
   val player-invests = players-and-invests.map( fn( (_,i) ){ i })
+
   val max-invest = player-invests.maximum
   val max-count = player-invests.foldl( 0, fn(c, i){ if i == max-invest then c + 1 else c })
 
@@ -70,13 +80,27 @@ fun resolve-outcome( x : maybe<cardType>, y : maybe<cardType> ) : pure attackOut
           val (y-attack, _) = y-ty.get-card-stats()
           if y-attack > x-defense then CardFainted else CardOkay
 
+fun is-legal-attack( attacker-name : string, player : player, choice : maybe<int>)
+  val is-attacker = attacker-name == player.name
+  match choice
+    Nothing -> True
+    Just( idx ) ->
+      if idx < 0 || idx >= player.cards.length then False
+      else
+        val card = player.cards[idx].unjust
+        if is-attacker then card.attacks > 0
+        else card.defends > 0
+
 // TODO: Add coins to players when shield of greed defends
 fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phaseResult)
   val attacker-name = match state.phase
     Attack( name, _ ) -> name
 
   val attacker-idx = state.players.index-of( fn( p ){ p.name == attacker-name } )
-  val attacker-move = get-move( state, attacker-idx ).attack
+  val attacker-move-unchecked = get-move( state, attacker-idx ).attack
+
+  val attacker-legal = is-legal-attack( attacker-name, state.players[attacker-idx].unjust, attacker-move-unchecked )
+  val attacker-move = if attacker-legal then attacker-move-unchecked else Nothing
 
   val attack-with-move = Attack( attacker-name, attacker-move )
   val state-with-attack = state( phase = attack-with-move )
@@ -89,9 +113,19 @@ fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phase
   val attacker-choice = get-choice-ty( attacker-idx, attacker-move )
   
   val defender-idxs = list(0, state.players.length - 1).filter( fn(i){ i != attacker-idx } )
-  val defender-moves = defender-idxs.map( fn(i){ get-move( state-with-attack, i).attack } )
+  val defender-moves-unchecked = defender-idxs.map( fn(i){ get-move( state-with-attack, i).attack } )
+
+  val defenders-legal = defender-idxs.zip( defender-moves-unchecked ).map( fn( (i, m) ){
+    val defender = state.players[i].unjust
+    is-legal-attack( attacker-name, defender, m )
+  })
+  val defender-moves = defenders-legal.zip( defender-moves-unchecked ).map( fn( (l,m) ){
+    if l then m else Nothing
+  })
+
   val defender-choices = defender-idxs.zip( defender-moves ).map( fn( (i,m) ){ get-choice-ty( i, m ) })
 
+  val all-legal = defenders-legal.take( attacker-idx ) ++ [attacker-legal] ++ defenders-legal.drop( attacker-idx )
   val all-moves = defender-moves.take( attacker-idx ) ++ [attacker-move] ++ defender-moves.drop( attacker-idx )
   val all-choices = defender-choices.take( attacker-idx ) ++ [attacker-choice] ++ defender-choices.drop( attacker-idx )
 
@@ -147,7 +181,8 @@ fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phase
     AttackResult(p.name, get-role( p ), c, o, income)
   })
 
-  val players-attacks-updated = state.players.zip( all-moves ).map( fn( (p,c) ){ update-card-attacks( get-role( p ), p, c) })
+  val players-disqualified = state.players.zip( all-legal ).map( fn( (p,l) ){ if l then p else p( status = Disqualified )})
+  val players-attacks-updated = players-disqualified.zip( all-moves ).map( fn( (p,c) ){ update-card-attacks( get-role( p ), p, c) })
   val players-coins-updated = players-attacks-updated.zip( results ).map( fn( (p,r) ){ p( coins = p.coins + r.income )})
   val players-faints-updated = players-coins-updated.zip( outcomes ).zip( all-moves ).map( fn( ((p,o),c) ){ remove-fainted-cards( p, o, c )})
   val remaining-players = players-faints-updated.zip( outcomes ).map( fn( (p,o) ){ if o.is-playerDefeated then p( status = Defeated ) else p })
@@ -168,14 +203,26 @@ fun resolve-attack( state : gameState ) : <pure,getPlayerMove> (gameState, phase
 
   (state( phase = new-phase, players = remaining-players ), AttackPhaseResult( results ))
 
+fun is-legal-buy( state : gameState, player : player, maybe-ty : maybe<cardType> ) : <div,exn> bool
+  match maybe-ty
+    Nothing -> True
+    Just( ty ) ->
+      if player.buys <= 0 then False
+      else if player.coins < ty.get-price then False
+      else if state.store.get-stock-count( ty ) <= 0 then False
+      else True
 
 fun resolve-buy( state : gameState ) : <pure,getPlayerMove> (gameState, phaseResult)
-  val buy-choices = state.players.map-indexed( fn(i,p){
+  val buy-choices-unchecked = state.players.map-indexed( fn(i,p){
     if p.status.is-defeated then Nothing
     else get-move( state, i ).buy
   })
-
-  val players-decremented-buys = state.players.map( fn(p){ p( buys = [p.buys - 1, 0].maximum)})
+  val buys-legal = state.players.zip( buy-choices-unchecked ).map( fn( (p,c) ){
+    is-legal-buy( state, p, c )
+  })
+  val buy-choices = buy-choices-unchecked.zip( buys-legal ).map( fn( (c,l) ){
+    if l then c else Nothing
+  })
 
   val bought-card-tys = buy-choices.filter( is-just ).map( unjust )
 
@@ -199,7 +246,10 @@ fun resolve-buy( state : gameState ) : <pure,getPlayerMove> (gameState, phaseRes
   })
 
   // Update players
-  val players-updated = state.players.zip( buy-results ).zip( purchase-amts ).map( fn( ((p,r),a) ){ 
+  val players-disqualified = state.players.zip( buys-legal ).map( fn( (p,l) ){
+    if l then p else p( status = Disqualified )
+  })
+  val players-updated = players-disqualified.zip( buy-results ).zip( purchase-amts ).map( fn( ((p,r),a) ){ 
       val new-num-buys = [p.buys - 1, 0].maximum
       val new-coins = p.coins - a
 
@@ -219,7 +269,7 @@ fun resolve-buy( state : gameState ) : <pure,getPlayerMove> (gameState, phaseRes
   val victory-points = players-updated.map( fn(p){ p.get-victory-points })
   val max-points = victory-points.maximum
   val num-max = victory-points.filter( fn(p){ p == max-points }).length
-  val has-victor = max-points > 7 && num-max == 1
+  val has-victor = max-points >= 7 && num-max == 1
   val players-with-victor = if has-victor then 
     players-updated.map( fn(p){ if p.get-victory-points == max-points then p else p( status = Defeated ) } ) 
   else players-updated

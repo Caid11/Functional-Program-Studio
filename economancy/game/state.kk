@@ -12,6 +12,7 @@ pub fun playerCard/show( p : playerCard )
 // TODO: The tabs here are hard-coded to show players when printing game state.
 pub fun player/show( p : player )
   "Name: " ++ p.name ++ 
+  "\n\t\tStatus: " ++ p.status.show ++ 
   "\n\t\tCoins: " ++ p.coins.show ++ 
   "\n\t\tBuys: " ++ p.buys.show ++ 
   "\n\t\tCards: " ++ p.cards.show
