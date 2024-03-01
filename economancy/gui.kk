@@ -288,7 +288,7 @@ fun collect-player-info( gui-state : guiState, num-humans : int, num-cpus : int 
         _ -> Nothing
     })
 
-    val strategies = [cpu-player/Pass, cpu-player/Random]
+    val strategies = [cpu-player/Pass, cpu-player/Random, cpu-player/Defensive]
 
     fun prev-strategy( s : strategy)
       val prev-idx = strategies.index-of( fn(strat){ strat == s } )

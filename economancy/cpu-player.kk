@@ -2,22 +2,26 @@ import std/num/random
 import std/num/float64
 
 import game
+import behavior-trees
 
 // TODO: Take randomness out of these functions
 
 type strategy
   Pass
   Random
+  Defensive
 
 fun show( s : strategy )
   match s
     cpu-player/Pass -> "pass"
     Random -> "random"
+    Defensive -> "defensive"
 
 fun (==)( x : strategy, y : strategy )
   match x
     cpu-player/Pass -> y.is-pass
     Random -> y.is-random
+    Defensive -> y.is-defensive
 
 fun get-invest( game-state : gameState, player-idx : int, s : strategy ) : <pure,random> playerMove
   match s
@@ -68,7 +72,12 @@ fun get-buy( game-state : gameState, player-idx : int, s : strategy ) : <pure,ra
 pub fun get-cpu-move( game-state : gameState, idx : int, s : strategy ) : <pure,random> playerMove
   if game-state.players[idx].unjust.status.is-defeated then Pass
   else
-    match game-state.phase
-      Invest -> get-invest( game-state, idx, s)
-      Buy -> get-buy( game-state, idx, s)
-      Attack -> get-attack( game-state, idx, s)
+    match s
+      Defensive -> 
+        val (_, move) = defensive.traverse( game-state, idx )
+        move
+      _ ->
+        match game-state.phase
+          Invest -> get-invest( game-state, idx, s)
+          Buy -> get-buy( game-state, idx, s)
+          Attack -> get-attack( game-state, idx, s)
