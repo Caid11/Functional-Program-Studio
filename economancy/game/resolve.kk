@@ -233,7 +233,7 @@ fun resolve-buy( state : gameState ) : <pure,getPlayerMove> (gameState, phaseRes
       Just( card-ty ) ->
         // If there are fewer cards available than the total buys, players get nothing
         val num-buys = bought-card-tys.filter( fn(ty : cardType){ ty == card-ty }).length
-        if num-buys >= state.store.get-stock-count( card-ty ) then Nothing
+        if num-buys > state.store.get-stock-count( card-ty ) then Nothing
         else
           Just( card-ty )
 
