@@ -4,9 +4,10 @@ import game/types
 import game/card
 import game/state
 
-fun get-player-income( d : day, p : player, coins : int, cards : list<playerCard> ) : pure int
+pub fun get-player-income( d : day, p : player, coins : int, cards : list<playerCard> ) : pure int
   match cards
     Nil -> coins
+    // TODO: This makes magic bean stock order dependent
     Cons( c, cs ) -> get-player-income( d, p, coins + get-card-income( coins, c.ty, d ), cs)
 
 pub fun get-victory-points( p : player ) : pure int

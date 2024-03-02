@@ -73,9 +73,7 @@ pub fun get-cpu-move( game-state : gameState, idx : int, s : strategy ) : <pure,
   if game-state.players[idx].unjust.status.is-defeated then Pass
   else
     match s
-      Defensive -> 
-        val (_, move) = defensive.traverse( game-state, idx )
-        move
+      Defensive -> get-move-defensive( game-state, idx )
       _ ->
         match game-state.phase
           Invest -> get-invest( game-state, idx, s)

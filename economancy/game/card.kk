@@ -54,6 +54,7 @@ pub fun get-price( ty : cardType ) : pure int
 
 pub fun get-card-stats( ty : cardType ) : pure (int, int)
   match ty
+    SorcerersStipend -> (0,0)
     Apprentice -> (2,1)
     BoardOfMonopoly -> (1,1)
     Bubble -> (9,2)

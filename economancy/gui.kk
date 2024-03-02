@@ -201,6 +201,8 @@ fun get-player-elements( game-state : gameState,
 
   val rest-elements = if player.status.is-defeated then
     [[elem( "defeated", Text( player-font-size, "DEFEATED", red))]]
+  else if player.status.is-disqualified then
+    [[elem( "disqualified", Text( player-font-size, "DISQUALIFIED", red))]]
   else
       val card-tys = player.cards.map( fn(c){ c.ty })
       val card-colors = get-player-card-colors( game-state, player )
@@ -320,7 +322,7 @@ fun collect-player-info( gui-state : guiState, num-humans : int, num-cpus : int 
 
 
   val initial-names = ["Alice", "Bob", "Charlie", "Diane"].take( num-humans + num-cpus )
-  val initial-tys = list(1, num-humans).map( fn(_){ Human }) ++ list(1,num-cpus).map( fn(_){ Cpu( cpu-player/Pass )})
+  val initial-tys = list(1, num-humans).map( fn(_){ Human }) ++ list(1,num-cpus).map( fn(_){ Cpu( cpu-player/Defensive )})
   val initial-text-box-states = initial-names.map( fn(_){ False })
   collect-player-info-r( gui-state, initial-names, initial-tys, initial-text-box-states )
 
