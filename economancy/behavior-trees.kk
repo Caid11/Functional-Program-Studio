@@ -239,7 +239,9 @@ val has-high-enough-defense = Leaf( fn( state : gameState, player-idx : int ) {
 
   val highest-attack = state.players.flatmap( fn(p){ p.cards }).map( fn(c){ 
     val (attack, _) = c.ty.get-card-stats
-    attack
+    val num-attacks = c.ty.get-card-attacks-defends.attacks
+    if num-attacks > 0 then attack
+    else 0
   }).maximum
 
   val player-max-defend = player.cards.map( fn(c){
