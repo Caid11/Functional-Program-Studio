@@ -24,6 +24,8 @@ fun read-json-object()
     // because it allows objects with arbitrary newlines.
 
     fun read-json-object-string( curr-input : string )
+      // trace("Waiting...")
+      // trace(curr-input)
       val new-input = readline()
       val complete-input = curr-input ++ new-input
 
@@ -39,30 +41,34 @@ fun read-json-object()
     val json-string = read-json-object-string( "" )
     json-string.parse-json-string
 
-fun to-game-state( obj : jsonValue ) : pure (gameState, string)
+pub fun string/phase( p : string )
+  match p
+    "income" -> Income
+    "investing" -> Invest
+    "buy" -> Buy
+    "end" -> Victory
+
+fun to-game-state( obj : jsonValue ) : pure (gameState, int)
   val day-num = obj.key( "day" ).int
   val curr-day = day-num.int/day
 
   val phase-obj = obj.key( "phase" )
-  val curr-phase = phase-obj.key( "name" ).string.phase
-  
-  if curr-phase.is-victory then (GameState( curr-phase, One, [], [], Nothing ), "")
+
+  val curr-phase = match phase-obj.key( "name" ).string
+    "victory" -> Victory
+    "attacking" -> 
+      val attacker-str = phase-obj.key( "attacker" ).int.show
+      val attacker-card =
+        match phase-obj.key( "attacker_card" )
+          Boolean( False ) -> Nothing
+          Number( n ) -> Just( n.int )
+
+      Attack( attacker-str, attacker-card )
+    s -> s.phase
+
+  if curr-phase.is-victory then (GameState( curr-phase, One, [], []), -1)
   else {
-    // TODO: Attacker's card isn't represented in my game state. Pass it around separately?
-    val (attacker, attacker-card) = match curr-phase
-      Attack -> 
-        val attacker-str = phase-obj.key( "attacker" ).int.show
-
-        val attacker-card =
-          match phase-obj.key( "attacker_card" )
-            Boolean( False ) -> Nothing
-            Number( n ) -> Just( n.int )
-
-        (Just(attacker-str), Just(attacker-card))
-      
-      _ -> (Nothing, Nothing)
-
-    val player-str = obj.key( "player" ).int.show
+    val player-idx = obj.key( "player" ).int
 
     val player-objs = obj.key( "players" ).array
 
@@ -76,14 +82,14 @@ fun to-game-state( obj : jsonValue ) : pure (gameState, string)
       PlayerCard( card-ty, attacks, defends )
 
     fun obj-to-player( name : string, v : jsonValue )
-      val is-attacker = match attacker
-        Just( attacker-name ) -> attacker-name == name
-        Nothing -> False
+      val is-attacker = match curr-phase
+        Attack( attacker-name, _ ) -> attacker-name == name
+        _ -> False
 
       val buys = v.key( "buys" ).int
       val cards = v.key( "cards" ).array.map( fn(c){ obj-to-card( is-attacker, c ) })
       val coins = v.key( "coins" ).int
-      Player( name, coins, buys, cards)
+      Player( name, Playing, coins, buys, cards )
 
     val player-names = list(0, player-objs.length - 1).map( show )
     val players = player-names.zip( player-objs ).map( fn( (n,o) ){ obj-to-player( n, o ) } )
@@ -95,10 +101,13 @@ fun to-game-state( obj : jsonValue ) : pure (gameState, string)
       Stock( p.name.cardType, p.value.int )
     })
 
-    (GameState( curr-phase, curr-day, stock, players, attacker), player-str)
+    (GameState( curr-phase, curr-day, stock, players), player-idx)
   }
 
-fun main()
+inline extern flush-output() : io ()
+  c inline "fflush( stdout );"
+
+pub fun run-player( s : strategy )
   with handler
     ctl fail( msg : string ) { println( "Failed to parse JSON. Error: " ++ msg ) }
 
@@ -106,26 +115,23 @@ fun main()
 
     val obj = read-json-object()
     val (game-state, player) = obj.to-game-state()
-    
-    // TODO: Looking at this, I can probably combine these functions and just pull the phase out of the state.
-    match game-state.phase
-      Invest ->
-        val move = get-invest( game-state, player, Random )
-        println( Array( [Number(move.float64) ]).show )
-      Attack ->
-        val move = get-attack( game-state, player, Random )
-        match move
-          Nothing -> println( Array( [Number(0.0)]).show )
-          Just( num ) -> println( Array( [Number(num.float64) ]).show )
-      Buy ->
-        val move = get-buy( game-state, player, Random )
-        val card-str = match move
-          Nothing -> "Pass"
-          Just( ty ) -> ty.show
-        println( Array( [String(card-str)]).show )
+    if game-state.phase.is-victory then ()
+    else
+      val move = get-cpu-move( game-state, player, s )
+      val move-json = match move
+        game/types/Pass ->
+          match game-state.phase
+            Buy -> Array( [String("Pass")] )
+            _ -> Array( [Number(0.0)] )
 
-    loop()
+        InvestMove( amt ) -> Array( [Number(amt.float64)] )
+        AttackMove( idx ) -> Array( [Number(idx.float64)] )
+        BuyMove( ty ) -> Array( [String(ty.show)])
+
+      println( move-json.show )
+      flush-output()
+
+      loop()
 
   loop()
-
   ()

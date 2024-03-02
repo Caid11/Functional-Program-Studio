@@ -76,7 +76,8 @@ fun buy( ty : cardType )
     val player = match state.players[player-idx]
       Just( p ) -> p
 
-    if state.store.get-stock-count( ty ) <= 0 then Fail
+    if player.buys == 0 then Fail
+    else if state.store.get-stock-count( ty ) <= 0 then Fail
     else if ty.get-price > player.coins then Fail
     else found( BuyMove( ty ))
   })
