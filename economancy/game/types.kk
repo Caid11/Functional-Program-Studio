@@ -128,6 +128,7 @@ pub fun playerMove/invest( p : playerMove )
 pub fun playerMove/attack( p : playerMove )
   match p
     Pass -> Nothing
+    AttackMove( 0 ) -> Nothing
     AttackMove( idx ) -> Just( idx )
 
 pub fun playerMove/buy( p : playerMove )

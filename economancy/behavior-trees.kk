@@ -232,24 +232,26 @@ val has-enough-earning = Leaf( fn( state : gameState, player-idx : int ) {
   end( earning-over-days > 7 )
 })
 
-// The player has enough defense if they have a card that can defend against the
-// most powerful card in possesion of another player
+// The player has enough defense if they have a card that can either defend
+// against or destroy the strongest card in another player's possesion
 val has-high-enough-defense = Leaf( fn( state : gameState, player-idx : int ) {
   val player = state.players[player-idx].unjust
 
-  val highest-attack = state.players.flatmap( fn(p){ p.cards }).map( fn(c){ 
-    val (attack, _) = c.ty.get-card-stats
+  val (highest-attack, highest-defense) = state.players.flatmap( fn(p){ p.cards }).map( fn(c){ 
+    val (attack, defense) = c.ty.get-card-stats
     val num-attacks = c.ty.get-card-attacks-defends.attacks
-    if num-attacks > 0 then attack
-    else 0
-  }).maximum
+    if num-attacks > 0 then (attack, defense)
+    else (0,0)
+  }).foldl( (0,0), fn( (max-attack, max-defense), (attack, defense ) ){
+    if attack > max-attack then (attack, defense)
+    else (max-attack, max-defense)
+  })
 
-  val player-max-defend = player.cards.map( fn(c){
-    val (_, defense) = c.ty.get-card-stats
-    defense
-   }).maximum
+  val player-card-stats = player.cards.map( fn(c){ c.ty.get-card-stats })
+  val player-max-attack = player-card-stats.map( fn( (a,_) ) {a} ).maximum
+  val player-max-defend = player-card-stats.map( fn( (_,d) ) {d} ).maximum
 
-  end( player-max-defend >= highest-attack )
+  end( player-max-defend >= highest-attack || player-max-attack > highest-defense )
 })
 
 val is-day-one = Leaf( fn( state : gameState, _ ) {
@@ -276,14 +278,6 @@ val defensive-buy = Sequence([
     buy( Bubble ),
     buy( SeniorWorker ),
     buy( Worker ),
-  ]),
-
-  // Opportunistically buy a Shield of Greed
-  Selector([
-    has-card( ShieldOfGreed ),
-    trace-node( "Shield of Greed", Fail ),
-    buy( ShieldOfGreed ),
-    end-node( True )
   ]),
 
   // If another player has a card with higher attack than this player's best
