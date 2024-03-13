@@ -48,7 +48,7 @@ fun run-test-case(case: case): _e list<testOutput>
   val res = case.tests.map(fn(t) run-test(case.name, t))
   val total-ms = res.map(fn(o) o.ms-elapsed).sum
 
-  println(green("[----------] ") ++ case.tests.length.show ++ " tests from " ++ case.name ++ "(" ++ total-ms.show ++ " ms total)")
+  println(green("[----------] ") ++ case.tests.length.show ++ " tests from " ++ case.name ++ " (" ++ total-ms.show ++ " ms total)")
 
   res
 
