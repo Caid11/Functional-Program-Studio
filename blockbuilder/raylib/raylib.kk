@@ -101,111 +101,60 @@ val guiControlPropertyTextSize : int = 16
 //================================================================================
 // Raylib functions
 
-extern raylib-InitWindow( width : int, height : int, window_name : string ) : raylib-io ()
+extern initWindow( width : int, height : int, window_name : string ) : raylib-io ()
   c "kk_raylib_InitWindow"
 
-pub fun initWindow( width : int, height : int, window_name : string ) : raylib-io ()
-  raylib-InitWindow( width, height, window_name )
-
-extern raylib-CloseWindow() : raylib-io ()
+extern closeWindow() : raylib-io ()
   c "kk_raylib_CloseWindow"
 
-pub fun closeWindow() : raylib-io ()
-  raylib-CloseWindow()
-
-extern raylib-SetTargetFPS( fps : int ) : raylib-io ()
+extern setTargetFPS( fps : int ) : raylib-io ()
   c "kk_raylib_SetTargetFPS"
 
-pub fun setTargetFPS( fps : int ) : raylib-io ()
-  raylib-SetTargetFPS( fps )
-
-extern raylib-WindowShouldClose() : raylib-io bool
+extern windowShouldClose() : raylib-io bool
   c "kk_raylib_WindowShouldClose"
 
-pub fun windowShouldClose() : raylib-io bool
-  raylib-WindowShouldClose()
-
-extern raylib-BeginDrawing() : raylib-io ()
+extern beginDrawing() : raylib-io ()
   c "kk_raylib_BeginDrawing"
 
-pub fun beginDrawing() : raylib-io ()
-  raylib-BeginDrawing()
-
-extern raylib-EndDrawing() : raylib-io ()
+extern endDrawing() : raylib-io ()
   c "kk_raylib_EndDrawing"
-
-pub fun endDrawing() : raylib-io ()
-  raylib-EndDrawing()
 
 // TODO: Colors are currently hard-coded, because raylib takes uint4 structs. Figure out how to deal with that.
 
-extern raylib-ClearBackground( color : color ) : raylib-io ()
+extern clearBackground( color : color ) : raylib-io ()
   c "kk_raylib_ClearBackground"
 
-pub fun clearBackground( color : color ) : raylib-io ()
-  raylib-ClearBackGround( color )
-
-extern raylib-DrawText( text : string, posX : int, posY : int, fontSize : int, color : color ) : raylib-io ()
+extern drawText( text : string, posX : int, posY : int, fontSize : int, color : color ) : raylib-io ()
   c "kk_raylib_DrawText"
 
-pub fun drawText( text : string, posX : int, posY : int, fontSize : int, color : color ) : raylib-io ()
-  raylib-DrawText( text, posX, posY, fontSize, color )
-
-extern raylib-measureText( text : string, fontSize : int ) : raylib-io int
+extern measureText( text : string, fontSize : int ) : raylib-io int
   c "kk_raylib_MeasureText"
 
-pub fun measureText( text : string, fontSize : int ) : raylib-io int
-  raylib-measureText( text, fontSize )
-
-extern raylib-LoadTexture( fileName : string ) : raylib-io texture2D
+extern loadTexture( fileName : string ) : raylib-io texture2D
   c "kk_raylib_LoadTexture"
-
-pub fun loadTexture( fileName : string ) : raylib-io texture2D
-  raylib-LoadTexture( fileName )
 
 // TODO: unloadTexture
 
-extern raylib-DrawTexture( texture : texture2D, posX : int, posY : int, tint : color ) : raylib-io ()
+extern drawTexture( texture : texture2D, posX : int, posY : int, tint : color ) : raylib-io ()
   c "kk_raylib_DrawTexture"
 
-pub fun drawTexture( texture : texture2D, posX : int, posY : int, tint : color ) : raylib-io ()
-  raylib-DrawTexture( texture, posX, posY, tint )
-
-extern raylib-DrawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
+extern drawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
   c "kk_raylib_DrawTextureEx"
 
-pub fun drawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
-  raylib-DrawTextureEx( texture, position, rotation, scale, tint )
-
-extern raylib-IsMouseButtonPressed( button : int ) : raylib-io bool
+extern isMouseButtonPressed( button : int ) : raylib-io bool
   c "kk_raylib_IsMouseButtonPressed"
 
-pub fun isMouseButtonPressed( button : int ) : raylib-io bool
-  raylib-IsMouseButtonPressed( button )
-
-extern raylib-GetMousePosition() : raylib-io vector2
+extern getMousePosition() : raylib-io vector2
   c "kk_raylib_GetMousePosition"
-
-pub fun getMousePosition() : raylib-io vector2
-  raylib-GetMousePosition()
 
 //================================================================================
 // Raygui functions
 
-extern raylib-GuiSetStyle( rl_control : int, property : int, value : int ) : raylib-io ()
+extern guiSetStyle( rl_control : int, property : int, value : int ) : raylib-io ()
   c "kk_raylib_GuiSetStyle"
 
-pub fun guiSetStyle( rl_control : int, property : int, value : int ) : raylib-io ()
-  raylib-GuiSetStyle( rl_control, property, value )
-
-extern raylib-GuiButton( bounds : rectangle, text : string ) : raylib-io bool
+extern guiButton( bounds : rectangle, text : string ) : raylib-io bool
   c "kk_raylib_GuiButton"
 
-pub fun guiButton( bounds : rectangle, text : string ) : raylib-io bool
-  raylib-GuiButton( bounds, text )
-
-extern raylib-GuiTextBox( bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool ) : raylib-io (string, bool)
+extern guiTextBox( bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool ) : raylib-io (string, bool)
   c "kk_raylib_GuiTextBox"
-
-pub fun guiTextBox( bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool ) : raylib-io (string, bool)
-  raylib-GuiTextBox( bounds, text, buffer-size, edit-mode )
