@@ -61,6 +61,13 @@ static void kk_raylib_DrawText(kk_string_t kk_text,
     kk_string_drop(kk_text, ctx);
 }
 
+static void kk_raylib_DrawFPS(kk_integer_t kk_posX, kk_integer_t kk_posY, kk_context_t* ctx) {
+    int posX = kk_integer_clamp32(kk_posX, ctx);
+    int posY = kk_integer_clamp32(kk_posY, ctx);
+
+    DrawFPS(posX, posY);
+}
+
 static kk_integer_t kk_raylib_MeasureText(kk_string_t kk_text, kk_integer_t kk_fontSize, kk_context_t* ctx) {
     const char* text = kk_string_cbuf_borrow(kk_text, NULL, ctx);
     int fontSize = kk_integer_clamp32(kk_fontSize, ctx);
@@ -71,6 +78,30 @@ static kk_integer_t kk_raylib_MeasureText(kk_string_t kk_text, kk_integer_t kk_f
     kk_string_drop(kk_text, ctx);
 
     return kk_res;
+}
+
+static Vector3 kk_to_c_vector3(kk_raylib_raylib__vector3 kk_vector, kk_context_t *ctx) {
+    float x = kk_raylib_raylib_vector3_fs_x(kk_vector, ctx);
+    float y = kk_raylib_raylib_vector3_fs_y(kk_vector, ctx);
+    float z = kk_raylib_raylib_vector3_fs_z(kk_vector, ctx);
+
+    Vector3 vec;
+    vec.x = x;
+    vec.y = y;
+    vec.z = z;
+
+    return vec;
+}
+
+static void kk_raylib_DrawCube(kk_raylib_raylib__vector3 kk_position,
+                               double width,
+                               double height,
+                               double length,
+                               kk_raylib_raylib__color kk_color,
+                               kk_context_t* ctx) {
+    Vector3 position = kk_to_c_vector3(kk_position, ctx);
+    Color color = kk_color_from_kk(kk_color, ctx);
+    DrawCube(position, width, height, length, color);
 }
 
 static kk_raylib_raylib__texture kk_raylib_LoadTexture(kk_string_t kk_fileName, kk_context_t* ctx) {
@@ -149,6 +180,39 @@ static void kk_raylib_GuiSetStyle(kk_integer_t kk_rl_control, kk_integer_t kk_pr
     int value = kk_integer_clamp32(kk_value, ctx);
 
     GuiSetStyle(control, property, value);
+}
+
+static Camera3D kk_to_c_camera3D(kk_raylib_raylib__camera3D kk_camera, kk_context_t *ctx) {
+    kk_raylib_raylib__vector3 kk_pos = kk_raylib_raylib_camera3D_fs_position(kk_camera, ctx);
+    kk_raylib_raylib__vector3 kk_target = kk_raylib_raylib_camera3D_fs_target(kk_camera, ctx);
+    kk_raylib_raylib__vector3 kk_up = kk_raylib_raylib_camera3D_fs_up(kk_camera, ctx);
+
+    Vector3 pos = kk_to_c_vector3(kk_pos, ctx);
+    Vector3 target = kk_to_c_vector3(kk_target, ctx);
+    Vector3 up = kk_to_c_vector3(kk_up, ctx);
+
+    float fovy = kk_raylib_raylib_camera3D_fs_fovy(kk_camera, ctx);
+    
+    kk_integer_t kk_projection = kk_raylib_raylib_camera3D_fs_projection(kk_camera, ctx);
+    int projection = kk_integer_clamp32(kk_projection, ctx);
+
+    Camera3D camera;
+    camera.position = pos;
+    camera.target = target;
+    camera.up = up;
+    camera.fovy = fovy;
+    camera.projection = projection;
+
+    return camera;
+}
+
+static void kk_raylib_BeginMode3D(kk_raylib_raylib__camera3D kk_camera, kk_context_t *ctx) {
+    Camera3D camera = kk_to_c_camera3D(kk_camera, ctx);
+    BeginMode3D(camera);
+}
+
+static void kk_raylib_EndMode3D(kk_context_t *ctx) {
+    EndMode3D();
 }
 
 static Rectangle kk_rectangle_from_kk(kk_raylib_raylib__rectangle kk_rectangle, kk_context_t* ctx) {

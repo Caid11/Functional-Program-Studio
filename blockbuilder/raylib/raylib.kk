@@ -61,6 +61,8 @@ pub val blank = Color(0, 0, 0, 0)
 pub val magenta = Color(255, 0, 255, 255)
 pub val raywhite = Color(245, 245, 245, 255)
 
+// TODO: Switch float32's to float64's
+
 pub struct rectangle
   x : float32
   y : float32
@@ -71,12 +73,27 @@ pub struct vector2
   x : float32
   y : float32
 
+pub struct vector3
+  x : float64
+  y : float64
+  z : float64
+
 pub struct texture
   id : int
   width : int
   height : int
   mipmaps : int
   format : int
+
+pub val cameraPerspective : int = 0
+pub val cameraOrthographic : int = 1
+
+pub struct camera3D
+  position : vector3
+  target : vector3
+  up : vector3
+  fovy : float64
+  projection : int
 
 pub alias texture2D = texture
 
@@ -101,13 +118,13 @@ val guiControlPropertyTextSize : int = 16
 //================================================================================
 // Raylib functions
 
-extern initWindow( width : int, height : int, window_name : string ) : raylib-io ()
+extern initWindow(width : int, height : int, window_name : string) : raylib-io ()
   c "kk_raylib_InitWindow"
 
 extern closeWindow() : raylib-io ()
   c "kk_raylib_CloseWindow"
 
-extern setTargetFPS( fps : int ) : raylib-io ()
+extern setTargetFPS(fps : int) : raylib-io ()
   c "kk_raylib_SetTargetFPS"
 
 extern windowShouldClose() : raylib-io bool
@@ -119,42 +136,52 @@ extern beginDrawing() : raylib-io ()
 extern endDrawing() : raylib-io ()
   c "kk_raylib_EndDrawing"
 
-// TODO: Colors are currently hard-coded, because raylib takes uint4 structs. Figure out how to deal with that.
-
-extern clearBackground( color : color ) : raylib-io ()
+extern clearBackground(color : color) : raylib-io ()
   c "kk_raylib_ClearBackground"
 
-extern drawText( text : string, posX : int, posY : int, fontSize : int, color : color ) : raylib-io ()
+extern drawFPS(posX : int, posY : int) : raylib-io ()
+  c "kk_raylib_DrawFPS"
+
+extern drawText(text : string, posX : int, posY : int, fontSize : int, color : color) : raylib-io ()
   c "kk_raylib_DrawText"
 
-extern measureText( text : string, fontSize : int ) : raylib-io int
+extern measureText(text : string, fontSize : int) : raylib-io int
   c "kk_raylib_MeasureText"
 
-extern loadTexture( fileName : string ) : raylib-io texture2D
+extern drawCube(position : vector3, width : float64, height : float64, length : float64, color : color ) : raylib-io ()
+  c "kk_raylib_DrawCube"
+
+extern loadTexture(fileName : string) : raylib-io texture2D
   c "kk_raylib_LoadTexture"
 
 // TODO: unloadTexture
 
-extern drawTexture( texture : texture2D, posX : int, posY : int, tint : color ) : raylib-io ()
+extern drawTexture(texture : texture2D, posX : int, posY : int, tint : color) : raylib-io ()
   c "kk_raylib_DrawTexture"
 
-extern drawTextureEx( texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color ) : raylib-io ()
+extern drawTextureEx(texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color) : raylib-io ()
   c "kk_raylib_DrawTextureEx"
 
-extern isMouseButtonPressed( button : int ) : raylib-io bool
+extern isMouseButtonPressed(button : int) : raylib-io bool
   c "kk_raylib_IsMouseButtonPressed"
 
 extern getMousePosition() : raylib-io vector2
   c "kk_raylib_GetMousePosition"
 
+extern beginMode3D(camera : camera3D) : raylib-io ()
+  c "kk_raylib_BeginMode3D"
+
+extern endMode3D() : raylib-io ()
+  c "kk_raylib_EndMode3D"
+
 //================================================================================
 // Raygui functions
 
-extern guiSetStyle( rl_control : int, property : int, value : int ) : raylib-io ()
+extern guiSetStyle(rl_control : int, property : int, value : int) : raylib-io ()
   c "kk_raylib_GuiSetStyle"
 
-extern guiButton( bounds : rectangle, text : string ) : raylib-io bool
+extern guiButton(bounds : rectangle, text : string) : raylib-io bool
   c "kk_raylib_GuiButton"
 
-extern guiTextBox( bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool ) : raylib-io (string, bool)
+extern guiTextBox(bounds : rectangle, text : string, buffer-size : int,  edit-mode : bool) : raylib-io (string, bool)
   c "kk_raylib_GuiTextBox"
