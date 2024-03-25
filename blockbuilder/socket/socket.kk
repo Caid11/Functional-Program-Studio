@@ -22,8 +22,8 @@ extern create-socket() : socket-io socket
 extern bind(socket : socket, address : string, port : int) : socket-io int
   c "kk_socket_bind"
 
-pub fun listen(socket : socket) : socket-io ()
-  ()
+extern listen(socket : socket) : socket-io int
+  c "kk_socket_listen"
 
 pub fun accept(socket : socket) : socket-io maybe<socket>
   Nothing

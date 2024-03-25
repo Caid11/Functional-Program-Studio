@@ -12,28 +12,30 @@ fun client-server-test()
 
     val server-addr = "127.0.0.1"
     val server-port = 5000
-    server-listen-socket.bind(server-addr, server-port)
+    if server-listen-socket.bind(server-addr, server-port) == socketError then
+      Fail("Error binding server socket to address")
+    else
+      if server-listen-socket.listen() == socketError then
+        Fail("Error listening with server socket")
+      else
+        client-socket.connect(server-addr, server-port)
 
-    server-listen-socket.listen()
+        val server-socket-maybe = server-listen-socket.accept()
+        match server-socket-maybe
+          Nothing -> Fail("Server socket didn't receive connection")
+          Just(server-socket) ->
+            val msg = "hello"
 
-    client-socket.connect(server-addr, server-port)
+            client-socket.send(msg.vector)
 
-    val server-socket-maybe = server-listen-socket.accept()
-    match server-socket-maybe
-      Nothing -> Fail("Server socket didn't receive connection")
-      Just(server-socket) ->
-        val msg = "hello"
+            val res = server-socket.recv(msg.count)
 
-        client-socket.send(msg.vector)
-
-        val res = server-socket.recv(msg.count)
-
-        if res.string != msg then
-          Fail("Server received bad message")
-        else
-          server-socket.shutdown()
-          socket-shutdown()
-          Success 
+            if res.string != msg then
+              Fail("Server received bad message")
+            else
+              server-socket.shutdown()
+              socket-shutdown()
+              Success 
 
 val socket-test = Test(
   "socket",
