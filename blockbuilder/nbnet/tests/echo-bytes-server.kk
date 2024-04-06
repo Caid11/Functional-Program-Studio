@@ -27,16 +27,6 @@ fun echo-received-message(client : connectionHandle)
 
   ()
 
-fun sleep(dt : float64, start : maybe<time>)
-  val now = time-now()
-
-  match start
-    Nothing -> sleep(dt, now)
-    Just(t) ->
-      val curr-dur = now - t
-      if curr-dur.seconds >= dt then ()
-      else sleep(dt, start)
-
 fun main()
   with ctl serverError(msg)
     println("ERROR: " ++ msg)

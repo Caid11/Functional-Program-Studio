@@ -7,9 +7,6 @@ extern import
   c { vcpkg = "raylib"; library = "raylib" }
 
 extern import
-  c { file = "raygui.h" }
-
-extern import
   c { syslib = "winmm" }
 
 extern import

@@ -4,6 +4,12 @@ alias socket-io = io
 
 alias socket = int64
 
+pub val socketError = -1
+pub val invalidSocket : int64 = int64(-1)
+
+pub val errWouldBlock = 10035
+pub val errIsConn     = 10056
+
 extern import
   c { syslib = "Ws2_32" }
 
@@ -13,8 +19,11 @@ extern import
 extern socket-init() : socket-io int
   c "kk_socket_socket_init"
 
-pub fun socket-shutdown() : socket-io ()
-  ()
+extern socket-shutdown() : socket-io int
+  c "kk_socket_socket_shutdown"
+
+extern socket-get-last-error() : socket-io int
+  c "kk_socket_socket_get_last_error"
 
 extern create-socket() : socket-io socket
   c "kk_socket_create_socket"
@@ -25,20 +34,20 @@ extern bind(socket : socket, address : string, port : int) : socket-io int
 extern listen(socket : socket) : socket-io int
   c "kk_socket_listen"
 
-pub fun accept(socket : socket) : socket-io maybe<socket>
-  Nothing
+extern accept(socket : socket) : socket-io socket
+  c "kk_socket_accept"
 
-pub fun connect(socket : socket, address : string, port : int) : socket-io ()
-  ()
+extern connect(socket : socket, address : string, port : int) : socket-io int
+  c "kk_socket_connect"
 
-pub fun close(socket : socket) : socket-io ()
-  ()
+extern close(socket : socket) : socket-io int
+  c "kk_socket_close"
 
-pub fun recv(socket : socket, num-bytes : int) : socket-io vector<char>
-  [].vector
+extern send(socket : socket, bytes : vector<char>) : socket-io int
+  c "kk_socket_send"
 
-pub fun send(socket : socket, bytes : vector<char>) : socket-io ()
-  ()
+extern recv(socket : socket, num-bytes : int) : socket-io vector<char>
+  c "kk_socket_recv"
 
-pub fun shutdown(socket : socket) : socket-io ()
-  ()
+extern shutdown(socket : socket) : socket-io int
+  c "kk_socket_shutdown"
