@@ -1,6 +1,11 @@
+module socket/socket
+
 import std/num/int64
 
 alias socket-io = io
+
+pub effect socket-error
+  ctl socket-error(msg : string) : a
 
 alias socket = int64
 
@@ -16,38 +21,108 @@ extern import
 extern import
   c file "socket-inline.c"
 
-extern socket-init() : socket-io int
+extern c-socket-init() : socket-io int
   c "kk_socket_socket_init"
 
-extern socket-shutdown() : socket-io int
+pub fun socket-init() : <socket-io,socket-error> ()
+  val result = c-socket-init()
+  if result != 0 then
+    socket-error(c-socket-get-error-string(result))
+  else ()
+
+extern c-socket-shutdown() : socket-io int
   c "kk_socket_socket_shutdown"
 
-extern socket-get-last-error() : socket-io int
+pub fun socket-shutdown() : <socket-io,socket-error> ()
+  val result = c-socket-shutdown()
+  if result != 0 then
+    socket-error(c-socket-get-error-string(result))
+  else ()
+
+extern c-socket-get-last-error() : socket-io int
   c "kk_socket_socket_get_last_error"
 
-extern create-socket() : socket-io socket
+extern c-socket-get-error-string(err : int) : socket-io string
+  c "kk_socket_socket_get_error_string"
+
+fun get-last-error-string() : socket-io string
+  c-socket-get-error-string(c-socket-get-last-error())
+
+extern c-create-socket() : socket-io socket
   c "kk_socket_create_socket"
 
-extern bind(socket : socket, address : string, port : int) : socket-io int
+pub fun create-socket() : <socket-io,socket-error> socket
+  val result = c-create-socket()
+  if result == invalidSocket then
+    socket-error(get-last-error-string())
+  else result
+
+extern c-bind(socket : socket, address : string, port : int) : socket-io int
   c "kk_socket_bind"
 
-extern listen(socket : socket) : socket-io int
+pub fun bind(socket : socket, address : string, port : int) : <socket-io,socket-error> ()
+  if c-bind(socket, address, port) == socketError then
+    socket-error(get-last-error-string())
+  else ()
+
+extern c-listen(socket : socket) : socket-io int
   c "kk_socket_listen"
 
-extern accept(socket : socket) : socket-io socket
+pub fun listen(socket : socket) : <socket-io,socket-error> ()
+  if c-listen(socket) == socketError then
+    socket-error(get-last-error-string())
+  else ()
+
+extern c-accept(socket : socket) : socket-io socket
   c "kk_socket_accept"
 
-extern connect(socket : socket, address : string, port : int) : socket-io int
+pub fun accept(socket : socket) : <socket-io,socket-error> socket
+  val result = c-accept(socket)
+  if result == invalidSocket then
+    socket-error(get-last-error-string())
+  else result
+
+extern c-connect(socket : socket, address : string, port : int) : socket-io int
   c "kk_socket_connect"
 
-extern close(socket : socket) : socket-io int
+pub fun connect(socket : socket, address : string, port : int) : <socket-io,socket-error> ()
+  if c-connect(socket, address, port) == socketError then 
+    val lastError = c-socket-get-last-error()
+    if lastError == errWouldBlock then ()
+    else
+      socket-error(c-socket-get-error-string(lastError))
+  else ()
+
+extern c-close(socket : socket) : socket-io int
   c "kk_socket_close"
 
-extern send(socket : socket, bytes : vector<char>) : socket-io int
+pub fun close(socket : socket) : <socket-io,socket-error> ()
+  if c-close(socket) == socketError then
+    socket-error(get-last-error-string())
+  else ()
+
+extern c-send(socket : socket, bytes : vector<char>) : socket-io int
   c "kk_socket_send"
 
-extern recv(socket : socket, num-bytes : int) : socket-io vector<char>
+pub fun send(socket : socket, bytes : vector<char>) : <socket-io,socket-error> int
+  val result = c-send(socket, bytes)
+  if result == socketError then
+    socket-error(get-last-error-string())
+  else result
+
+extern c-recv(socket : socket, num-bytes : int) : socket-io (int,vector<char>)
   c "kk_socket_recv"
 
-extern shutdown(socket : socket) : socket-io int
+pub fun recv(socket : socket, num-bytes : int) : <socket-io,socket-error> vector<char>
+  val (res, bytes) = c-recv(socket, num-bytes)
+  if res == socketError then
+    socket-error(get-last-error-string())
+  else bytes
+
+extern c-shutdown(socket : socket) : socket-io int
   c "kk_socket_shutdown"
+
+pub fun shutdown(socket : socket) : <socket-io,socket-error> ()
+  if c-shutdown(socket) == socketError then
+    socket-error(get-last-error-string())
+  else ()

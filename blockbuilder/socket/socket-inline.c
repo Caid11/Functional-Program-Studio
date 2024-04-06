@@ -25,6 +25,26 @@ static kk_integer_t kk_socket_socket_get_last_error(kk_context_t* ctx) {
     return kk_integer_from_int32(err, ctx);
 }
 
+static kk_string_t kk_socket_socket_get_error_string(kk_integer_t kk_err, kk_context_t* ctx) {
+    int err = kk_integer_clamp32(kk_err, ctx);
+
+    char msgbuf[256];
+    msgbuf[255] = 0;
+
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+                  NULL,
+                  err,
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                  msgbuf,
+                  sizeof(msgbuf),
+                  NULL);
+
+    if (! *msgbuf)
+        sprintf(msgbuf, "%d", err);
+
+    return kk_string_alloc_from_qutf8(msgbuf, ctx);
+}
+
 // TODO: Switch to UDP
 
 static int64_t kk_socket_create_socket(kk_context_t* ctx) {
@@ -45,22 +65,14 @@ kk_integer_t kk_socket_bind(int64_t socket, kk_string_t kk_address, kk_integer_t
     const char* address = kk_string_cbuf_borrow(kk_address, NULL, ctx);
     int port = kk_integer_clamp32(kk_port, ctx);
     
-    char port_str[10];
-    itoa(port, port_str, 10);
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(address);
 
-    struct addrinfo *result = NULL;
-    int addr_res = getaddrinfo(address, port_str, NULL, &result);
-    if (addr_res) {
-        kk_string_drop(kk_address, ctx);
-        return kk_integer_from_int32(addr_res, ctx);
-    }
+    int res = bind(socket, (SOCKADDR*)&addr, sizeof(addr));
 
-    kk_string_drop(kk_address, ctx);
-
-    int bind_res = bind(socket, result->ai_addr, (int)result->ai_addrlen);
-
-    freeaddrinfo(result);
-    return kk_integer_from_int32(bind_res, ctx);
+    return kk_integer_from_int32(res, ctx);
 }
 
 kk_integer_t kk_socket_listen(int64_t socket, kk_context_t* ctx) {
@@ -77,21 +89,15 @@ kk_integer_t kk_socket_connect(int64_t socket, kk_string_t kk_address, kk_intege
     const char* address = kk_string_cbuf_borrow(kk_address, NULL, ctx);
     int port = kk_integer_clamp32(kk_port, ctx);
     
-    char port_str[10];
-    itoa(port, port_str, 10);
-
-    struct addrinfo *result = NULL;
-    int addr_res = getaddrinfo(address, port_str, NULL, &result);
-    if (addr_res) {
-        kk_string_drop(kk_address, ctx);
-        return kk_integer_from_int32(addr_res, ctx);
-    }
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(address);
 
     kk_string_drop(kk_address, ctx);
 
-    int connect_res = connect(socket, result->ai_addr, (int)result->ai_addrlen);
+    int connect_res = connect(socket, (SOCKADDR*)&addr, sizeof(addr));
 
-    freeaddrinfo(result);
     return kk_integer_from_int32(connect_res, ctx);
 }
 
@@ -128,7 +134,7 @@ kk_integer_t kk_socket_send(int64_t socket, kk_vector_t kk_bytes, kk_context_t* 
     return kk_integer_from_int32(res, ctx);
 }
 
-kk_vector_t kk_socket_recv(int64_t socket, kk_integer_t kk_num_bytes, kk_context_t* ctx) {
+kk_std_core_types__tuple2 kk_socket_recv(int64_t socket, kk_integer_t kk_num_bytes, kk_context_t* ctx) {
     int num_bytes = kk_integer_clamp32(kk_num_bytes, ctx);
 
     uint8_t *recv_buf = (uint8_t*)malloc(num_bytes);
@@ -144,7 +150,9 @@ kk_vector_t kk_socket_recv(int64_t socket, kk_integer_t kk_num_bytes, kk_context
     }
 
     free(recv_buf);
-    return vec;
+
+
+    return kk_std_core_types__new_Tuple2(kk_integer_box(kk_integer_from_int32(res, ctx), ctx), kk_vector_box(vec, ctx), ctx);
 }
 
 kk_integer_t kk_socket_shutdown(int64_t socket, kk_context_t* ctx) {
