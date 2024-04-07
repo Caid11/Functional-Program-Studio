@@ -2,6 +2,7 @@ import std/num/ddouble
 import std/num/float64
 import std/os/env
 import std/time/duration
+import std/time/timer
 
 import raylib/raylib
 
@@ -54,7 +55,7 @@ fun main()
   // Either connect to or start server
 
   val server = match args.connect
-    Nothing -> LocalServer
+    Nothing -> LocalServer(ticks(), [])
     Just(addr) -> RemoteServer(addr)
 
   // Initialize renderer
@@ -66,38 +67,20 @@ fun main()
 
   // Game loop
 
-  fun loop(ui: gameUi, world : gameWorld, last-time : duration)
+  fun loop(ui: gameUi, world : gameWorld)
     if ui.exit() then ()
     else
-      // Collect/broadcast commands
-
       val local-cmds = ui.get-cmds()
-      val server-cmds = server.get-cmds()
 
-      server.submit-cmds(local-cmds)
+      val server-with-local = server.submit-cmds(local-cmds)
+      val server-with-remote = server-with-local.poll-cmds()
 
-      server.broadcast-cmds
-
-      // Update world
-
-      val curr-time = ui.get-time()
-      val elapsed = curr-time - last-time
-
-      val cmds-to-process = local-cmds ++ server-cmds
-
-      fun update-world(world : gameWorld, elapsed : duration)
-        if elapsed <= ms-per-update then world
-        else
-          val new-world = world.tick(cmds-to-process)
-          val new-elapsed = elapsed - ms-per-update
-          update-world(new-world, new-elapsed)
-
-      val new-world = update-world(world, elapsed)
+      val (updated-world, updated-server) = server-with-remote.get-updated(world)
 
       // Render
 
-      ui.render(new-world)
+      ui.render(updated-world)
   
-      loop(ui, new-world, curr-time)
+      loop(ui, updated-world)
 
-  loop(ui, world, ui.get-time())
+  loop(ui, world)
