@@ -24,33 +24,34 @@ fun client-server-test()
   server-listen-socket.bind(server-addr, server-port)
 
   server-listen-socket.listen()
-  sleep(0.1)
 
-  // First client connect attempt will return errBlocking
   client-socket.connect(server-addr, server-port)
-  sleep(0.4)
-
   val server-socket = server-listen-socket.accept()
 
-  // TODO: Call select() instead of sleeping
+  // Wait for client to connect
+  val select-res = select([], [client-socket], [client-socket], True) 
+  select-res.raise-errors()
 
-  val msg = "hello"
-
-  client-socket.send(msg.vector)
-
-  val res = server-socket.recv(msg.count)
-
-  if res.ks-string != msg then
-    Fail("Server received bad message (" ++ res.string ++ ")")
+  if !select-res.is-writable(client-socket) then
+    Fail("Client socket wasn't writable")
   else
-    server-socket.shutdown()
+    val msg = "hello"
 
-    server-socket.close()
-    server-listen-socket.close()
-    client-socket.close()
+    client-socket.send(msg.vector)
 
-    socket-shutdown()
-    Success 
+    val res = server-socket.recv(msg.count)
+
+    if res.ks-string != msg then
+      Fail("Server received bad message (" ++ res.string ++ ")")
+    else
+      server-socket.shutdown()
+
+      server-socket.close()
+      server-listen-socket.close()
+      client-socket.close()
+
+      socket-shutdown()
+      Success 
 
 val socket-test = Test(
   "socket",

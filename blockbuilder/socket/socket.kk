@@ -9,6 +9,11 @@ pub effect socket-error
 
 alias socket = int64
 
+struct selectResult
+  readable : list<socket>
+  writable : list<socket>
+  errored : list<socket>
+
 pub val socketError = -1
 pub val invalidSocket : int64 = int64(-1)
 
@@ -124,5 +129,34 @@ extern c-shutdown(socket : socket) : socket-io int
 
 pub fun shutdown(socket : socket) : <socket-io,socket-error> ()
   if c-shutdown(socket) == socketError then
+    socket-error(get-last-error-string())
+  else ()
+
+extern c-select(readable : list<socket>,
+                writable : list<socket>,
+                errored : list<socket>,
+                block : bool) : socket-io (int,selectResult)
+  c "kk_socket_select"
+
+pub fun select(readable : list<socket>,
+               writable : list<socket>,
+               errored : list<socket>,
+               block : bool) : <socket-io,socket-error> selectResult
+  val (res, fds) = c-select(readable, writable, errored, block)
+  if res == socketError then
+    socket-error(get-last-error-string())
+  else fds
+
+pub fun is-readable(result : selectResult, socket : socket) : bool
+  return result.readable.index-of(fn(s){ s == socket }) != -1
+
+pub fun is-writable(result : selectResult, socket : socket) : bool
+  return result.writable.index-of(fn(s){ s == socket }) != -1
+
+pub fun is-errored(result : selectResult, socket : socket) : bool
+  return result.errored.index-of(fn(s){ s == socket }) != -1
+
+pub fun raise-errors(result : selectResult) : <socket-io,socket-error> ()
+  if !result.errored.is-empty then
     socket-error(get-last-error-string())
   else ()
