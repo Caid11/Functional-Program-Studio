@@ -112,6 +112,21 @@ val guiControlButton : int = 2
 // Enum values for GuiControlProperty (GuiControl/DefaultProperty in raygui.h)
 val guiControlPropertyTextSize : int = 16
 
+
+//================================================================================
+// Koka convenience functions
+
+pub fun color/show(c : color) : string
+  [c.r, c.g, c.b, c.a].map(show).join(" ")
+
+pub fun color/(==)(x : color, y : color) : bool 
+  [
+    x.r == y.r,
+    x.g == y.g,
+    x.b == y.b,
+    x.a == y.a
+  ].all(fn(x){ x })
+
 //================================================================================
 // Raylib functions
 

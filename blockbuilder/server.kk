@@ -109,9 +109,12 @@ fun write-color(s : socket, c : color) : <socket-io,socket-error> ()
   val sent = s.send(to-send)
   ()
 
-pub fun broadcast-world(s : server, world : gameWorld) : <socket-io,socket-error> ()
+pub fun broadcast-world(s : server, prev-world : gameWorld, world : gameWorld) : <socket-io,socket-error> ()
   match s
     RemoteServer -> ()
     LocalServer(last-update, pending-cmds, listen-socket, client-sockets) ->
-      client-sockets.map(fn(c){ c.write-color(world.color)})
-      ()
+      // TODO: Switch this to world comparison
+      if prev-world.color != world.color then
+        client-sockets.map(fn(c){ c.write-color(world.color)})
+        ()
+      else ()

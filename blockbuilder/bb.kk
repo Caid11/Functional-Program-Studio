@@ -83,7 +83,7 @@ fun main()
 
       val (updated-world, updated-server) = server-with-remote.get-updated(world)
 
-      updated-server.broadcast-world(updated-world)
+      updated-server.broadcast-world(world, updated-world)
 
       // Render
 
