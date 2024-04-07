@@ -5,6 +5,7 @@ import std/time/duration
 import std/time/timer
 
 import raylib/raylib
+import socket/socket
 
 import server
 import ui
@@ -44,10 +45,14 @@ fun main()
     final ctl parse-error(msg) println(msg)
     final ctl show-help() print-usage()
 
+  with handler
+    final ctl socket-error(msg) println(msg)
+
   val args = parse-args(get-args())
-  match args.connect
-    Nothing -> println("nothing")
-    Just(addr) -> println(addr)
+
+  // Make sure socket lib is initialized
+  socket-init()
+  with finally{ socket-shutdown() }
 
   // Game state
   val world = GameWorld()
@@ -55,8 +60,8 @@ fun main()
   // Either connect to or start server
 
   val server = match args.connect
-    Nothing -> LocalServer(ticks(), [])
-    Just(addr) -> RemoteServer(addr)
+    Nothing -> create-local-server()
+    Just(addr) -> create-remote-server(addr)
 
   // Initialize renderer
 
@@ -67,20 +72,23 @@ fun main()
 
   // Game loop
 
-  fun loop(ui: gameUi, world : gameWorld)
+  fun loop(server : server, ui: gameUi, world : gameWorld)
     if ui.exit() then ()
     else
       val local-cmds = ui.get-cmds()
 
-      val server-with-local = server.submit-cmds(local-cmds)
+      val server-with-conns = server.update-conns()
+      val server-with-local = server-with-conns.submit-cmds(local-cmds)
       val server-with-remote = server-with-local.poll-cmds()
 
       val (updated-world, updated-server) = server-with-remote.get-updated(world)
+
+      updated-server.broadcast-world(updated-world)
 
       // Render
 
       ui.render(updated-world)
   
-      loop(ui, updated-world)
+      loop(updated-server, ui, updated-world)
 
-  loop(ui, world)
+  loop(server, ui, world)

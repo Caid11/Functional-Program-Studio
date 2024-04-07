@@ -2,14 +2,14 @@ module socket/socket
 
 import std/num/int64
 
-alias socket-io = io
+pub alias socket-io = io
 
 pub effect socket-error
   ctl socket-error(msg : string) : a
 
 pub alias socket = int64
 
-struct selectResult
+pub struct selectResult
   readable : list<socket>
   writable : list<socket>
   errored : list<socket>
@@ -81,11 +81,14 @@ pub fun listen(socket : socket) : <socket-io,socket-error> ()
 extern c-accept(socket : socket) : socket-io socket
   c "kk_socket_accept"
 
-pub fun accept(socket : socket) : <socket-io,socket-error> socket
+pub fun accept(socket : socket) : <socket-io,socket-error> maybe<socket>
   val result = c-accept(socket)
   if result == invalidSocket then
-    socket-error(get-last-error-string())
-  else result
+    val lastError = c-socket-get-last-error()
+    if lastError == errWouldBlock then Nothing
+    else
+      socket-error(c-socket-get-error-string(lastError))
+  else Just(result)
 
 extern c-connect(socket : socket, address : string, port : int) : socket-io int
   c "kk_socket_connect"
