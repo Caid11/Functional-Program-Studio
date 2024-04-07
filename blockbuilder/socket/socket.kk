@@ -7,7 +7,7 @@ alias socket-io = io
 pub effect socket-error
   ctl socket-error(msg : string) : a
 
-alias socket = int64
+pub alias socket = int64
 
 struct selectResult
   readable : list<socket>
