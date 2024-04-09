@@ -1,3 +1,5 @@
+import std/num/float64
+
 //================================================================================
 // C-imports and DLLs necessary to run/link raylib.
 //
@@ -176,8 +178,8 @@ pub struct rectangle
   height : float32
 
 pub struct vector2
-  x : float32
-  y : float32
+  x : float64
+  y : float64
 
 pub struct vector3
   x : float64
@@ -227,6 +229,9 @@ val guiControlPropertyTextSize : int = 16
 
 pub fun color/show(c : color) : string
   [c.r, c.g, c.b, c.a].map(show).join(" ")
+
+pub fun vector3/show(v : vector3) : string
+  "[" ++ [v.x, v.y, v.z].map(fn(x){x.show}).join(" ") ++ "]"
 
 pub fun color/(==)(x : color, y : color) : bool 
   [
@@ -306,6 +311,9 @@ extern isMouseButtonPressed(button : int) : raylib-io bool
 
 extern getMousePosition() : raylib-io vector2
   c "kk_raylib_GetMousePosition"
+
+extern getMouseDelta() : raylib-io vector2
+  c "kk_raylib_GetMouseDelta"
 
 extern beginMode3D(camera : camera3D) : raylib-io ()
   c "kk_raylib_BeginMode3D"

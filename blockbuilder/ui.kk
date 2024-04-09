@@ -74,3 +74,6 @@ pub fun get-time(ui : gameUi) : raylib-io duration
 
 pub fun is-key-down(ui : gameUi, key : int) : raylib-io bool
   isKeyDown(key)
+
+pub fun get-mouse-delta(ui : gameUi) : raylib-io vector2
+  getMouseDelta()

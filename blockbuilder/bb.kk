@@ -77,14 +77,15 @@ fun main()
 
   // Game loop
 
-  fun loop(server : server, prev-ui: gameUi, world : gameWorld, camera : camera)
+  fun loop(server : server, prev-ui: gameUi, world : gameWorld, prev-camera : camera)
     if prev-ui.exit() then ()
     else
       val ui = prev-ui.capture-release-mouse()
 
-      val updated-camera = if ui.is-key-down(key-w) then
+      val camera-forward = if ui.is-key-down(key-w) then
         camera.move-forward()
-      else camera
+      else prev-camera
+      val camera = camera-forward.update-look(ui.get-mouse-delta())
 
       val local-cmds = ui.get-cmds()
 
@@ -98,8 +99,8 @@ fun main()
 
       // Render
 
-      ui.render(updated-world, updated-camera)
+      ui.render(updated-world, camera)
   
-      loop(updated-server, ui, updated-world, updated-camera)
+      loop(updated-server, ui, updated-world, camera)
 
   loop(server, ui, world, camera)

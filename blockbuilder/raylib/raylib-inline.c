@@ -204,6 +204,11 @@ static kk_raylib_raylib__vector2 kk_raylib_GetMousePosition(kk_context_t* ctx) {
     return kk_raylib_raylib__new_Vector2(kk_reuse_null, 0, mousePos.x, mousePos.y, ctx);
 }
 
+static kk_raylib_raylib__vector2 kk_raylib_GetMouseDelta(kk_context_t* ctx) {
+    Vector2 mouseDelta = GetMouseDelta();
+    return kk_raylib_raylib__new_Vector2(kk_reuse_null, 0, mouseDelta.x, mouseDelta.y, ctx);
+}
+
 static void kk_raylib_GuiSetStyle(kk_integer_t kk_rl_control, kk_integer_t kk_property, kk_integer_t kk_value, kk_context_t* ctx) {
     int control = kk_integer_clamp32(kk_rl_control, ctx);
     int property = kk_integer_clamp32(kk_property, ctx);
