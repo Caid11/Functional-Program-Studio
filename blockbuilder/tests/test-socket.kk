@@ -12,7 +12,7 @@ import tests/test
 
 fun client-server-test()
   with final ctl socket-error(msg)
-    Fail("Socket error: " ++ msg)
+    test-fail("Socket error: " ++ msg)
 
   socket-init()
 
@@ -26,34 +26,35 @@ fun client-server-test()
   server-listen-socket.listen()
 
   client-socket.connect(server-addr, server-port)
-  val server-socket-maybe = server-listen-socket.accept()
-  match server-socket-maybe
-    Nothing -> Fail("Server didn't receive connection")
-    Just(server-socket) ->
-      // Wait for client to connect
-      val select-res = select([], [client-socket], [client-socket], True) 
-      select-res.raise-errors()
+  val server-socket : socket = match server-listen-socket.accept()
+    Nothing -> test-fail("Server didn't receive connection")
+    Just(s) -> s
 
-      if !select-res.is-writable(client-socket) then
-        Fail("Client socket wasn't writable")
-      else
-        val msg = "hello"
+  // Wait for client to connect
+  val select-res = select([], [client-socket], [client-socket], True) 
+  select-res.raise-errors()
 
-        client-socket.send(msg.vector)
+  if !select-res.is-writable(client-socket) then
+    test-fail("Client socket wasn't writable")
+  else ()
 
-        val res = server-socket.recv(msg.count)
+  val msg = "hello"
 
-        if res.ks-string != msg then
-          Fail("Server received bad message (" ++ res.string ++ ")")
-        else
-          server-socket.shutdown()
+  client-socket.send(msg.vector)
 
-          server-socket.close()
-          server-listen-socket.close()
-          client-socket.close()
+  val res = server-socket.recv(msg.count)
 
-          socket-shutdown()
-          Success 
+  if res.ks-string != msg then
+    test-fail("Server received bad message (" ++ res.string ++ ")")
+  else ()
+
+  server-socket.shutdown()
+
+  server-socket.close()
+  server-listen-socket.close()
+  client-socket.close()
+
+  socket-shutdown()
 
 val socket-test = Test(
   "socket",
@@ -62,7 +63,7 @@ val socket-test = Test(
 
 fun socket-no-pending()
   with final ctl socket-error(msg)
-    Fail("Socket error: " ++ msg)
+    test-fail("Socket error: " ++ msg)
 
   socket-init()
 
@@ -74,14 +75,12 @@ fun socket-no-pending()
 
   server-listen-socket.listen()
 
-  val server-socket = server-listen-socket.accept()
-  val result = match server-socket
-    Nothing -> Success
-    _ -> Fail("Accepted socket with none pending")
+  match server-listen-socket.accept()
+    Nothing -> ()
+    _ -> test-fail("Accepted socket with none pending")
 
   server-listen-socket.close()
   socket-shutdown()
-  Success 
 
 val socket-no-pending-test = Test(
   "accept-returns-none-with-no-pending",

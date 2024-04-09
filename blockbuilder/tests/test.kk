@@ -6,13 +6,16 @@ import std/num/ddouble
 import std/time/duration
 import std/time/timer
 
-pub value type testResult
+pub effect test-fail
+  ctl test-fail(msg : string) : a
+
+type testResult
+  Fail(msg : string)
   Success
-  Fail(msg: string)
 
 pub value struct test
   name: string
-  test-fn: () -> io testResult
+  test-fn: () -> <io,test-fail> ()
 
 pub value struct case
   name: string
@@ -23,11 +26,18 @@ struct testOutput
   result: testResult
   ms-elapsed: int
 
+fun dispatch-test-func(test-fn) : _e testResult
+  with final ctl test-fail(msg)
+    Fail(msg)
+  
+  test-fn()
+  Success
+
 fun run-test(case-name: string, t: test): _e testOutput
   val full-test-name = case-name ++ "." ++ t.name
   println(green("[ RUN      ] ") ++ full-test-name)
 
-  val (test-time, test-result) : (duration, testResult) = elapsed( t.test-fn )
+  val (test-time, test-result) : (duration, testResult) = elapsed( { dispatch-test-func({ t.test-fn }) })
 
   val (status-msg, test-msg) = match test-result
     Success -> (green("[       OK ]"), "")
