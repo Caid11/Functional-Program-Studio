@@ -17,6 +17,18 @@ static void kk_raylib_SetTargetFPS(kk_integer_t fps, kk_context_t* ctx) {
     SetTargetFPS(kk_integer_clamp32(fps, ctx));
 }
 
+static void kk_raylib_DisableCursor(kk_context_t* ctx) {
+    DisableCursor();
+}
+
+static void kk_raylib_EnableCursor(kk_context_t* ctx) {
+    EnableCursor();
+}
+
+static bool kk_raylib_IsCursorOnScreen(kk_context_t* ctx) {
+    return IsCursorOnScreen();
+}
+
 static bool kk_raylib_WindowShouldClose(kk_context_t* ctx) {
     return WindowShouldClose();
 }
@@ -173,6 +185,12 @@ static bool kk_raylib_IsKeyDown(kk_integer_t kk_key, kk_context_t *ctx)
 {
     int key = kk_integer_clamp32(kk_key, ctx);
     return IsKeyDown(key);
+}
+
+static void kk_raylib_SetExitKey(kk_integer_t kk_key, kk_context_t *ctx)
+{
+    int key = kk_integer_clamp32(kk_key, ctx);
+    SetExitKey(key);
 }
 
 static bool kk_raylib_IsMouseButtonPressed(kk_integer_t kk_button, kk_context_t *ctx)

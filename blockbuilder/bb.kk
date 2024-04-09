@@ -60,7 +60,7 @@ fun main()
   val world = GameWorld()
 
   // Local state
-  val camera = Camera(Vector3(0.0, 10.0, 10.0))
+  val camera = Camera(Vector3(0.0, 10.0, 10.0), 0.0, 0.0)
 
   // Either connect to or start server
 
@@ -77,9 +77,11 @@ fun main()
 
   // Game loop
 
-  fun loop(server : server, ui: gameUi, world : gameWorld, camera : camera)
-    if ui.exit() then ()
+  fun loop(server : server, prev-ui: gameUi, world : gameWorld, camera : camera)
+    if prev-ui.exit() then ()
     else
+      val ui = prev-ui.capture-release-mouse()
+
       val updated-camera = if ui.is-key-down(key-w) then
         camera.move-forward()
       else camera

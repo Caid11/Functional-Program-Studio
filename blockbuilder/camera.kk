@@ -7,6 +7,8 @@ import raylib/raylib
 
 pub struct camera
   position : vector3
+  pitch : float64
+  yaw : float64
 
 val camera-move-rate : float64 = 0.1
 

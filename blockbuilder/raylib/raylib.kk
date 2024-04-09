@@ -58,6 +58,7 @@ pub val blank = Color(0, 0, 0, 0)
 pub val magenta = Color(255, 0, 255, 255)
 pub val raywhite = Color(245, 245, 245, 255)
 
+pub val key-null            = 0        // No key
 pub val key-apostrophe      = 39       // Key: '
 pub val key-comma           = 44       // Key: ,
 pub val key-minus           = 45       // Key: -
@@ -247,6 +248,15 @@ extern closeWindow() : raylib-io ()
 extern setTargetFPS(fps : int) : raylib-io ()
   c "kk_raylib_SetTargetFPS"
 
+extern disableCursor() : raylib-io ()
+  c "kk_raylib_DisableCursor"
+
+extern enableCursor() : raylib-io ()
+  c "kk_raylib_EnableCursor"
+
+extern isCursorOnScreen() : raylib-io bool
+  c "kk_raylib_IsCursorOnScreen"
+
 extern windowShouldClose() : raylib-io bool
   c "kk_raylib_WindowShouldClose"
 
@@ -287,6 +297,9 @@ extern isKeyPressed(key : int) : raylib-io bool
 
 extern isKeyDown(key : int) : raylib-io bool
   c "kk_raylib_IsKeyDown"
+
+extern setExitKey(key : int) : raylib-io ()
+  c "kk_raylib_SetExitKey"
 
 extern isMouseButtonPressed(button : int) : raylib-io bool
   c "kk_raylib_IsMouseButtonPressed"
