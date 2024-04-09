@@ -5,6 +5,7 @@ import std/time/timer
 
 import raylib/raylib
 
+import camera
 import commands
 import world
 
@@ -26,19 +27,12 @@ pub fun destroy(ui : gameUi) : raylib-io ()
 pub fun exit(ui : gameUi) : raylib-io bool
   windowShouldClose()
 
-pub fun render(ui : gameUi, world : gameWorld) : raylib-io ()
-  val position = Vector3(0.0, 10.0, 10.0)
-  val target = Vector3(0.0, 0.0, 0.0)
-  val up = Vector3(0.0, 1.0, 0.0)
-  val fov = 45.0
-  val projection = cameraPerspective
-  val camera = Camera3D(position, target, up, fov, projection)
-
+pub fun render(ui : gameUi, world : gameWorld, camera : camera) : raylib-io ()
   beginDrawing()
 
   clearBackground(raywhite)
 
-  beginMode3D(camera)
+  beginMode3D(camera.raylib-camera3D)
 
   val cubePosition = Vector3(-2.0, 2.0, 0.0)
   val cubeWidth = 2.0
@@ -59,3 +53,6 @@ pub fun get-cmds(ui : gameUi) : raylib-io list<command>
 
 pub fun get-time(ui : gameUi) : raylib-io duration
   ticks()
+
+pub fun is-key-down(ui : gameUi, key : int) : raylib-io bool
+  isKeyDown(key)

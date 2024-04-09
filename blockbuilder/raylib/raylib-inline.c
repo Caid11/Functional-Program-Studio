@@ -163,6 +163,18 @@ static void kk_raylib_DrawTextureEx(kk_raylib_raylib__texture kk_texture,
     DrawTextureEx(texture, position, rotation, scale, tint);
 }
 
+static bool kk_raylib_IsKeyPressed(kk_integer_t kk_key, kk_context_t *ctx)
+{
+    int key = kk_integer_clamp32(kk_key, ctx);
+    return IsKeyPressed(key);
+}
+
+static bool kk_raylib_IsKeyDown(kk_integer_t kk_key, kk_context_t *ctx)
+{
+    int key = kk_integer_clamp32(kk_key, ctx);
+    return IsKeyDown(key);
+}
+
 static bool kk_raylib_IsMouseButtonPressed(kk_integer_t kk_button, kk_context_t *ctx)
 {
     int button = kk_integer_clamp32(kk_button, ctx);

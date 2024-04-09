@@ -7,6 +7,8 @@ import std/time/timer
 import raylib/raylib
 import socket/socket
 
+import camera
+import lmath
 import server
 import ui
 import world
@@ -57,6 +59,9 @@ fun main()
   // Game state
   val world = GameWorld()
 
+  // Local state
+  val camera = Camera(Vector3(0.0, 10.0, 10.0))
+
   // Either connect to or start server
 
   val server = match args.connect
@@ -72,9 +77,13 @@ fun main()
 
   // Game loop
 
-  fun loop(server : server, ui: gameUi, world : gameWorld)
+  fun loop(server : server, ui: gameUi, world : gameWorld, camera : camera)
     if ui.exit() then ()
     else
+      val updated-camera = if ui.is-key-down(key-w) then
+        camera.move-forward()
+      else camera
+
       val local-cmds = ui.get-cmds()
 
       val server-with-conns = server.update-conns()
@@ -87,8 +96,8 @@ fun main()
 
       // Render
 
-      ui.render(updated-world)
+      ui.render(updated-world, updated-camera)
   
-      loop(updated-server, ui, updated-world)
+      loop(updated-server, ui, updated-world, updated-camera)
 
-  loop(server, ui, world)
+  loop(server, ui, world, camera)
