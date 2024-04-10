@@ -82,10 +82,8 @@ fun main()
     else
       val ui = prev-ui.capture-release-mouse()
 
-      val camera-forward = if ui.is-key-down(key-w) then
-        camera.move-forward()
-      else prev-camera
-      val camera = camera-forward.update-look(ui.get-mouse-delta())
+      val camera-input = ui.get-camera-input()
+      val camera = prev-camera.update(camera-input)
 
       val local-cmds = ui.get-cmds()
 

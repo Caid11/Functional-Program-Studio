@@ -116,6 +116,13 @@ static void kk_raylib_DrawCube(kk_raylib_raylib__vector3 kk_position,
     DrawCube(position, width, height, length, color);
 }
 
+static void kk_raylib_DrawGrid(kk_integer_t kk_slices,
+                               double spacing,
+                               kk_context_t* ctx) {
+    int slices = kk_integer_clamp32(kk_slices, ctx);
+    DrawGrid(slices, spacing);
+}
+
 static kk_raylib_raylib__texture kk_raylib_LoadTexture(kk_string_t kk_fileName, kk_context_t* ctx) {
     const char* fileName = kk_string_cbuf_borrow(kk_fileName, NULL, ctx);
 

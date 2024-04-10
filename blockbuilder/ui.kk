@@ -58,6 +58,8 @@ pub fun render(ui : gameUi, world : gameWorld, camera : camera) : raylib-io ()
   val cubeLength = 2.0
   drawCube(cubePosition, cubeWidth, cubeHeight, cubeLength, world.color)
 
+  drawGrid(1000, 1.0)
+
   endMode3D()
 
   drawFPS(10, 10)
@@ -77,3 +79,24 @@ pub fun is-key-down(ui : gameUi, key : int) : raylib-io bool
 
 pub fun get-mouse-delta(ui : gameUi) : raylib-io vector2
   getMouseDelta()
+
+pub fun get-camera-input(ui : gameUi) : raylib-io cameraMovement
+  val mouse-delta = if ui.mouse-captured then
+    ui.get-mouse-delta()
+  else
+    Vector2(0.0, 0.0)
+
+  val move-forward = ui.is-key-down(key-w)
+  val move-back = ui.is-key-down(key-s)
+  val move-right = ui.is-key-down(key-d)
+  val move-left = ui.is-key-down(key-a)
+  val move-up = ui.is-key-down(key-space)
+  val move-down = ui.is-key-down(key-left-shift)
+
+  CameraMovement(mouse-delta,
+                 move-forward,
+                 move-back,
+                 move-right,
+                 move-left,
+                 move-up,
+                 move-down)

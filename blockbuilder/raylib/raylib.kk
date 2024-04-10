@@ -286,6 +286,9 @@ extern measureText(text : string, fontSize : int) : raylib-io int
 extern drawCube(position : vector3, width : float64, height : float64, length : float64, color : color ) : raylib-io ()
   c "kk_raylib_DrawCube"
 
+extern drawGrid(slices : int, spaceing : float64) : raylib-io ()
+  c "kk_raylib_DrawGrid"
+
 extern loadTexture(fileName : string) : raylib-io texture2D
   c "kk_raylib_LoadTexture"
 
