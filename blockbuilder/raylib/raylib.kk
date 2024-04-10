@@ -186,12 +186,72 @@ pub struct vector3
   y : float64
   z : float64
 
+pub struct matrix
+  m0 : float64
+  m1 : float64
+  m2 : float64
+  m3 : float64
+  m4 : float64
+  m5 : float64
+  m6 : float64
+  m7 : float64
+  m8 : float64
+  m9 : float64
+  m10 : float64
+  m11 : float64
+  m12 : float64
+  m13 : float64
+  m14 : float64
+  m15 : float64
+
 pub struct texture
   id : int
   width : int
   height : int
   mipmaps : int
   format : int
+
+pub struct mesh
+  vertex-count : int
+  triangle-count : int
+
+  vertices : vector<float64>
+  texcoords : vector<float64>
+  texcoords2 : vector<float64>
+  normals : vector<float64>
+  tangents : vector<float64>
+  colors : vector<char>
+  indices : vector<int32> // These are actually shorts
+
+  // TODO: animations not implemented
+
+  vao-id : int
+  vbo-id : vector<int>
+
+pub struct shader
+  id : int
+  locs : vector<int>
+
+pub struct materialMap
+  texture : texture
+  color : color
+  value : float64
+
+pub struct material
+  shader : shader
+  maps : vector<materialMap>
+  params : vector<float64>
+
+// pub struct model
+//   transform : matrix
+// 
+//   mesh-count : int
+//   material-count : int
+//   mesh : vector<mesh>
+//   material : vector<material>
+//   mesh-materal : vector<int>
+// 
+//   // TODO: Animations not implemented
 
 pub val cameraPerspective : int = 0
 pub val cameraOrthographic : int = 1
@@ -299,6 +359,12 @@ extern drawTexture(texture : texture2D, posX : int, posY : int, tint : color) : 
 
 extern drawTextureEx(texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color) : raylib-io ()
   c "kk_raylib_DrawTextureEx"
+
+extern genMeshCone(radius : float64, height: float64, slices : int) : raylib-io mesh
+  c "kk_raylib_GenMeshCone"
+
+extern loadMaterialDefault() : raylib-io material
+  c "kk_raylib_LoadMaterialDefault"
 
 extern isKeyPressed(key : int) : raylib-io bool
   c "kk_raylib_IsKeyPressed"

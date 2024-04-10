@@ -75,6 +75,9 @@ fun main()
 
   with finally{ ui.destroy() }
 
+  val cone-mesh = genMeshCone(1.0, 1.0, 5)
+  val default-material = loadMaterialDefault()
+
   // Game loop
 
   fun loop(server : server, prev-ui: gameUi, world : gameWorld, prev-camera : camera)

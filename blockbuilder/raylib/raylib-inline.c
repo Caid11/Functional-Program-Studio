@@ -1,3 +1,6 @@
+#define MAX_MATERIAL_MAPS 12
+#define RL_MAX_SHADER_LOCATIONS 32
+
 #include <raylib.h>
 
 #define RAYGUI_IMPLEMENTATION
@@ -41,7 +44,7 @@ static void kk_raylib_EndDrawing(kk_context_t* ctx) {
     EndDrawing();
 }
 
-static Color kk_color_from_kk(kk_raylib_raylib__color kk_color, kk_context_t* ctx) {
+static Color kk_color_to_raylib(kk_raylib_raylib__color kk_color, kk_context_t* ctx) {
     Color color;
     color.a = kk_integer_clamp_byte( kk_raylib_raylib_color_fs_a(kk_color, ctx), ctx );
     color.r = kk_integer_clamp_byte( kk_raylib_raylib_color_fs_r(kk_color, ctx), ctx );
@@ -52,7 +55,7 @@ static Color kk_color_from_kk(kk_raylib_raylib__color kk_color, kk_context_t* ct
 }
 
 static void kk_raylib_ClearBackground(kk_raylib_raylib__color kk_color, kk_context_t* ctx) {
-    Color color = kk_color_from_kk(kk_color, ctx);
+    Color color = kk_color_to_raylib(kk_color, ctx);
     ClearBackground(color);
 }
 
@@ -66,7 +69,7 @@ static void kk_raylib_DrawText(kk_string_t kk_text,
     int posX = kk_integer_clamp32(kk_posX, ctx);
     int posY = kk_integer_clamp32(kk_posY, ctx);
     int fontSize = kk_integer_clamp32(kk_fontSize, ctx);
-    Color color = kk_color_from_kk(kk_color, ctx);
+    Color color = kk_color_to_raylib(kk_color, ctx);
 
     DrawText(text, posX, posY, fontSize, color);
 
@@ -112,7 +115,7 @@ static void kk_raylib_DrawCube(kk_raylib_raylib__vector3 kk_position,
                                kk_raylib_raylib__color kk_color,
                                kk_context_t* ctx) {
     Vector3 position = kk_to_c_vector3(kk_position, ctx);
-    Color color = kk_color_from_kk(kk_color, ctx);
+    Color color = kk_color_to_raylib(kk_color, ctx);
     DrawCube(position, width, height, length, color);
 }
 
@@ -123,20 +126,23 @@ static void kk_raylib_DrawGrid(kk_integer_t kk_slices,
     DrawGrid(slices, spacing);
 }
 
+static kk_raylib_raylib__texture raylib_to_kk_texture(Texture2D texture, kk_context_t* ctx) {
+    kk_integer_t kk_id = kk_integer_from_uint32(texture.id, ctx);
+    kk_integer_t kk_width = kk_integer_from_int32(texture.width, ctx);
+    kk_integer_t kk_height = kk_integer_from_int32(texture.height, ctx);
+    kk_integer_t kk_mipmaps = kk_integer_from_int32(texture.mipmaps, ctx);
+    kk_integer_t kk_format = kk_integer_from_int32(texture.format, ctx);
+
+    return kk_raylib_raylib__new_Texture(kk_reuse_null, 0, kk_id, kk_width, kk_height, kk_mipmaps, kk_format, ctx);
+}
+
 static kk_raylib_raylib__texture kk_raylib_LoadTexture(kk_string_t kk_fileName, kk_context_t* ctx) {
     const char* fileName = kk_string_cbuf_borrow(kk_fileName, NULL, ctx);
 
     Texture2D res = LoadTexture(fileName);
-
-    kk_integer_t kk_id = kk_integer_from_uint32(res.id, ctx);
-    kk_integer_t kk_width = kk_integer_from_int32(res.width, ctx);
-    kk_integer_t kk_height = kk_integer_from_int32(res.height, ctx);
-    kk_integer_t kk_mipmaps = kk_integer_from_int32(res.mipmaps, ctx);
-    kk_integer_t kk_format = kk_integer_from_int32(res.format, ctx);
-
     kk_string_drop(kk_fileName, ctx);
 
-    return kk_raylib_raylib__new_Texture(kk_reuse_null, 0, kk_id, kk_width, kk_height, kk_mipmaps, kk_format, ctx);
+    return raylib_to_kk_texture(res, ctx);
 }
 
 static Texture2D kk_texture_from_kk(kk_raylib_raylib__texture kk_texture, kk_context_t* ctx) {
@@ -159,7 +165,7 @@ static void kk_raylib_DrawTexture(kk_raylib_raylib__texture kk_texture,
     int posX = kk_integer_clamp32(kk_posX, ctx);
     int posY = kk_integer_clamp32(kk_posY, ctx);
 
-    Color tint = kk_color_from_kk(kk_color, ctx);
+    Color tint = kk_color_to_raylib(kk_color, ctx);
 
     DrawTexture(texture, posX, posY, tint);
 }
@@ -177,9 +183,182 @@ static void kk_raylib_DrawTextureEx(kk_raylib_raylib__texture kk_texture,
     position.x = kk_raylib_raylib_vector2_fs_x(kk_position, ctx);
     position.y = kk_raylib_raylib_vector2_fs_y(kk_position, ctx);
 
-    Color tint = kk_color_from_kk(kk_tint, ctx);
+    Color tint = kk_color_to_raylib(kk_tint, ctx);
 
     DrawTextureEx(texture, position, rotation, scale, tint);
+}
+
+static kk_vector_t raylib_to_kk_vector_float(int vertex_count, float* vertices, kk_context_t* ctx) {
+    kk_vector_t v;
+    if (vertices)
+    {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(vertex_count, &p, ctx);
+        for (kk_ssize_t i = 0; i < vertex_count; i++)
+        {
+            p[i] = kk_double_box(vertices[i], ctx);
+        }
+    }
+    else
+    {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(0, &p, ctx);
+    }
+    return v;
+}
+
+static kk_vector_t raylib_to_kk_vector_char(int vertex_count, unsigned char* data, kk_context_t* ctx) {
+    kk_vector_t v;
+    if (data)
+    {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(vertex_count, &p, ctx);
+        for (kk_ssize_t i = 0; i < vertex_count; i++)
+        {
+            p[i] = kk_char_box(data[i], ctx);
+        }
+    }
+    else
+    {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(0, &p, ctx);
+    }
+    return v;
+}
+
+static kk_vector_t raylib_to_kk_vector_short(int vertex_count, unsigned short* data, kk_context_t* ctx) {
+    // We use kk_integers for these because koka doesn't have a short type
+    kk_vector_t v;
+    if (data)
+    {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(vertex_count, &p, ctx);
+        for (kk_ssize_t i = 0; i < vertex_count; i++)
+        {
+            kk_integer_t kk_data_i = kk_integer_from_int32(data[i], ctx);
+            p[i] = kk_integer_box(kk_data_i, ctx);
+        }
+    }
+    else
+    {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(0, &p, ctx);
+    }
+    return v;
+}
+
+static kk_vector_t raylib_to_kk_vector_int(int vertex_count, int* data, kk_context_t* ctx) {
+    // We use kk_integers for these because koka doesn't have a short type
+    kk_vector_t v;
+    if (data) {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(vertex_count, &p, ctx);
+        for (kk_ssize_t i = 0; i < vertex_count; i++)
+        {
+            kk_integer_t kk_data_i = kk_integer_from_int32(data[i], ctx);
+            p[i] = kk_integer_box(kk_data_i, ctx);
+        }
+    } else {
+        kk_box_t* p;
+        v = kk_vector_alloc_uninit(0, &p, ctx);
+    }
+    return v;
+}
+
+static kk_raylib_raylib__mesh raylib_mesh_to_kk(Mesh m, kk_context_t *ctx) {
+    kk_integer_t kk_vertex_count = kk_integer_from_int32(m.vertexCount, ctx);
+    kk_integer_t kk_triangle_count = kk_integer_from_int32(m.triangleCount, ctx);
+
+    kk_vector_t kk_vertices = raylib_to_kk_vector_float(m.vertexCount * 3, m.vertices, ctx);
+    kk_vector_t kk_texcoords = raylib_to_kk_vector_float(m.vertexCount * 2, m.texcoords, ctx);
+    kk_vector_t kk_texcoords2 = raylib_to_kk_vector_float(m.vertexCount * 2, m.texcoords2, ctx);
+    kk_vector_t kk_normals = raylib_to_kk_vector_float(m.vertexCount * 3, m.normals, ctx);
+    kk_vector_t kk_tangents = raylib_to_kk_vector_float(m.vertexCount * 4, m.tangents, ctx);
+    kk_vector_t kk_colors = raylib_to_kk_vector_char(m.vertexCount * 4, m.colors, ctx);
+    kk_vector_t kk_indices = raylib_to_kk_vector_short(m.vertexCount, m.indices, ctx);
+
+    kk_integer_t kk_vao_id = kk_integer_from_int32(m.vaoId, ctx);
+    kk_vector_t kk_vbo_id = raylib_to_kk_vector_int(m.triangleCount, (int*)m.vboId, ctx);
+
+    return kk_raylib_raylib__new_Mesh(kk_reuse_null, 0, 
+        kk_vertex_count,
+        kk_triangle_count,
+        kk_vertices,
+        kk_texcoords,
+        kk_texcoords2,
+        kk_normals,
+        kk_tangents,
+        kk_colors,
+        kk_indices,
+        kk_vao_id,
+        kk_vbo_id,
+        ctx);
+}
+
+static kk_raylib_raylib__mesh kk_raylib_GenMeshCone(double radius,
+                                                    double height,
+                                                    kk_integer_t kk_slices,
+                                                    kk_context_t* ctx) 
+{
+    int slices = kk_integer_clamp32(kk_slices, ctx);
+
+    Mesh result = GenMeshCone(radius, height, slices);
+    kk_raylib_raylib__mesh kk_result = raylib_mesh_to_kk(result, ctx);
+    return kk_result;
+}
+
+static kk_raylib_raylib__color raylib_color_to_kk(Color c, kk_context_t* ctx) {
+    kk_integer_t kk_r = kk_integer_from_int32(c.r, ctx);
+    kk_integer_t kk_g = kk_integer_from_int32(c.g, ctx);
+    kk_integer_t kk_b = kk_integer_from_int32(c.b, ctx);
+    kk_integer_t kk_a = kk_integer_from_int32(c.a, ctx);
+
+    return kk_raylib_raylib__new_Color(kk_reuse_null, 0, kk_r, kk_g, kk_b, kk_a, ctx);
+}
+
+static kk_raylib_raylib__materialMap raylib_to_kk_materialMap(MaterialMap* map, kk_context_t* ctx) {
+    kk_raylib_raylib__texture kk_texture = raylib_to_kk_texture(map->texture, ctx);
+    kk_raylib_raylib__color kk_color = raylib_color_to_kk(map->color, ctx);
+    double value = map->value;
+
+    return kk_raylib_raylib__new_MaterialMap(kk_reuse_null, 0, kk_texture, kk_color, value, ctx);
+}
+
+static kk_vector_t raylib_to_kk_vector_materialMap(MaterialMap* maps, kk_context_t* ctx) {
+    kk_vector_t v;
+    if (maps) {
+        kk_box_t *p;
+        v = kk_vector_alloc_uninit(MAX_MATERIAL_MAPS, &p, ctx);
+        for (kk_ssize_t i = 0; i < MAX_MATERIAL_MAPS; i++)
+        {
+            MaterialMap map = maps[i];
+            kk_raylib_raylib__materialMap kk_map = raylib_to_kk_materialMap(&map, ctx);
+            p[i] = kk_raylib_raylib__materialMap_box(kk_map, ctx);
+        }
+    } else {
+        kk_box_t* p;
+        v = kk_vector_alloc_uninit(0, &p, ctx);
+    }
+    return v;
+}
+
+static kk_raylib_raylib__shader raylib_shader_to_kk(Shader shader, kk_context_t* ctx) {
+    kk_integer_t kk_id = kk_integer_from_int32(shader.id, ctx);
+    kk_vector_t kk_locs = raylib_to_kk_vector_int(RL_MAX_SHADER_LOCATIONS, shader.locs, ctx);
+    return kk_raylib_raylib__new_Shader(kk_reuse_null, 0, kk_id, kk_locs, ctx);
+}
+
+static kk_raylib_raylib__material raylib_material_to_kk(Material mat, kk_context_t* ctx) {
+    kk_raylib_raylib__shader kk_shader = raylib_shader_to_kk(mat.shader, ctx);
+    kk_vector_t kk_maps = raylib_to_kk_vector_materialMap(mat.maps, ctx);
+    kk_vector_t kk_params = raylib_to_kk_vector_float(4, mat.params, ctx);
+    return kk_raylib_raylib__new_Material(kk_reuse_null, 0, kk_shader, kk_maps, kk_params, ctx);
+}
+
+static kk_raylib_raylib__material kk_raylib_LoadMaterialDefault(kk_context_t* ctx) {
+    Material result = LoadMaterialDefault();
+    kk_raylib_raylib__material kk_result = raylib_material_to_kk(result, ctx);
+    return kk_result;
 }
 
 static bool kk_raylib_IsKeyPressed(kk_integer_t kk_key, kk_context_t *ctx)
