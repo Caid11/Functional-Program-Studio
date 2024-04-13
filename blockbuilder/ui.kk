@@ -45,12 +45,15 @@ pub fun destroy(ui : gameUi) : raylib-io ()
 pub fun exit(ui : gameUi) : raylib-io bool
   windowShouldClose()
 
-pub fun render(ui : gameUi, world : gameWorld, camera : camera) : raylib-io ()
+pub fun render(ui : gameUi, world : gameWorld, camera : camera, cone-mesh : mesh, material : material) : raylib-io ()
   beginDrawing()
 
   clearBackground(raywhite)
 
   beginMode3D(camera.raylib-camera3D)
+
+  val transform = matrixTranslate(0.0, 2.0, 0.0)
+  drawMesh(cone-mesh, material, transform)
 
   val cubePosition = Vector3(-2.0, 2.0, 0.0)
   val cubeWidth = 2.0

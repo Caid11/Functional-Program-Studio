@@ -211,26 +211,31 @@ pub struct texture
   mipmaps : int
   format : int
 
+alias raylib-ptr = int64
+
 pub struct mesh
   vertex-count : int
   triangle-count : int
 
-  vertices : vector<float64>
-  texcoords : vector<float64>
-  texcoords2 : vector<float64>
-  normals : vector<float64>
-  tangents : vector<float64>
-  colors : vector<char>
-  indices : vector<int32> // These are actually shorts
+  vertices : raylib-ptr
+  texcoords : raylib-ptr
+  texcoords2 : raylib-ptr
+  normals : raylib-ptr
+  tangents : raylib-ptr
+  colors : raylib-ptr
+  indices : raylib-ptr
 
-  // TODO: animations not implemented
+  anim-vertices : raylib-ptr
+  anim-normals : raylib-ptr
+  bone-ids : raylib-ptr
+  bone-weights : raylib-ptr
 
   vao-id : int
-  vbo-id : vector<int>
+  vbo-id : raylib-ptr
 
 pub struct shader
   id : int
-  locs : vector<int>
+  locs : raylib-ptr
 
 pub struct materialMap
   texture : texture
@@ -239,8 +244,8 @@ pub struct materialMap
 
 pub struct material
   shader : shader
-  maps : vector<materialMap>
-  params : vector<float64>
+  maps : raylib-ptr
+  params : vector<float64> // always has 4 elements
 
 // pub struct model
 //   transform : matrix
@@ -360,6 +365,9 @@ extern drawTexture(texture : texture2D, posX : int, posY : int, tint : color) : 
 extern drawTextureEx(texture : texture2D, position : vector2, rotation : float32, scale : float32, tint : color) : raylib-io ()
   c "kk_raylib_DrawTextureEx"
 
+extern drawMesh(mesh : mesh, material : material, transform : matrix) : raylib-io ()
+  c "kk_raylib_DrawMesh"
+
 extern genMeshCone(radius : float64, height: float64, slices : int) : raylib-io mesh
   c "kk_raylib_GenMeshCone"
 
@@ -389,6 +397,18 @@ extern beginMode3D(camera : camera3D) : raylib-io ()
 
 extern endMode3D() : raylib-io ()
   c "kk_raylib_EndMode3D"
+
+//================================================================================
+// Raymath functions
+
+extern matrixTranslate(x : float64, y : float64, z : float64) : total matrix
+  c "kk_raylib_MatrixTranslate"
+
+extern matrixScale(x : float64, y : float64, z : float64) : total matrix
+  c "kk_raylib_MatrixScale"
+
+extern matrixMultiply(left : matrix, right : matrix) : total matrix
+  c "kk_raylib_MatrixMultiply"
 
 //================================================================================
 // Raygui functions

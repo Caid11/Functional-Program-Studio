@@ -80,7 +80,7 @@ fun main()
 
   // Game loop
 
-  fun loop(server : server, prev-ui: gameUi, world : gameWorld, prev-camera : camera)
+  fun loop(prev-server : server, prev-ui: gameUi, prev-world : gameWorld, prev-camera : camera)
     if prev-ui.exit() then ()
     else
       val ui = prev-ui.capture-release-mouse()
@@ -90,18 +90,18 @@ fun main()
 
       val local-cmds = ui.get-cmds()
 
-      val server-with-conns = server.update-conns()
-      val server-with-local = server-with-conns.submit-cmds(local-cmds)
-      val server-with-remote = server-with-local.poll-cmds()
+      val (world, server) = prev-server
+        .update-conns()
+        .submit-cmds(local-cmds)
+        .poll-cmds()
+        .get-updated(prev-world)
 
-      val (updated-world, updated-server) = server-with-remote.get-updated(world)
-
-      updated-server.broadcast-world(world, updated-world)
+      server.broadcast-world(prev-world, world)
 
       // Render
 
-      ui.render(updated-world, camera)
+      ui.render(world, camera, cone-mesh, default-material)
   
-      loop(updated-server, ui, updated-world, camera)
+      loop(server, ui, world, camera)
 
   loop(server, ui, world, camera)
