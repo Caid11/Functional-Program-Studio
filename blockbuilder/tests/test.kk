@@ -37,7 +37,7 @@ fun run-test(case-name: string, t: test): _e testOutput
   val full-test-name = case-name ++ "." ++ t.name
   println(green("[ RUN      ] ") ++ full-test-name)
 
-  val (test-time, test-result) : (duration, testResult) = elapsed( { dispatch-test-func({ t.test-fn }) })
+  val (test-time, test-result) : (duration, testResult) = elapsed( { dispatch-test-func(t.test-fn) })
 
   val (status-msg, test-msg) = match test-result
     Success -> (green("[       OK ]"), "")

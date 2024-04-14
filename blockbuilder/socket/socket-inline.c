@@ -122,7 +122,7 @@ static uint8_t* kk_vector_to_bytes(kk_vector_t vec, int* length, kk_context_t* c
     return bytes;
 }
 
-kk_integer_t kk_socket_send(int64_t socket, kk_vector_t kk_bytes, kk_context_t* ctx) {
+kk_integer_t kk_socket_send_bytes(int64_t socket, kk_vector_t kk_bytes, kk_context_t* ctx) {
     int length;
     uint8_t *bytes = kk_vector_to_bytes(kk_bytes, &length, ctx); 
 
@@ -132,7 +132,7 @@ kk_integer_t kk_socket_send(int64_t socket, kk_vector_t kk_bytes, kk_context_t* 
     return kk_integer_from_int32(res, ctx);
 }
 
-kk_std_core_types__tuple2 kk_socket_recv(int64_t socket, kk_integer_t kk_num_bytes, kk_context_t* ctx) {
+kk_std_core_types__tuple2 kk_socket_recv_bytes(int64_t socket, kk_integer_t kk_num_bytes, kk_context_t* ctx) {
     int num_bytes = kk_integer_clamp32(kk_num_bytes, ctx);
 
     uint8_t *recv_buf = (uint8_t*)malloc(num_bytes);
@@ -151,6 +151,33 @@ kk_std_core_types__tuple2 kk_socket_recv(int64_t socket, kk_integer_t kk_num_byt
 
 
     return kk_std_core_types__new_Tuple2(kk_integer_box(kk_integer_from_int32(res, ctx), ctx), kk_vector_box(vec, ctx), ctx);
+}
+
+kk_integer_t kk_socket_send_int(int64_t socket, kk_integer_t kk_v, kk_context_t* ctx) {
+    int v = kk_integer_clamp32(kk_v, ctx);
+
+    int res = send(socket, (const char*)&v, sizeof(int), 0);
+
+    return kk_integer_from_int32(res, ctx);
+}
+
+kk_std_core_types__tuple2 kk_socket_recv_int(int64_t socket, kk_context_t* ctx) {
+    int recv_buf;
+    int res = recv(socket, (char*)&recv_buf, sizeof(int), 0);
+    kk_integer_t kk_v = kk_integer_from_int32(recv_buf, ctx);
+
+    return kk_std_core_types__new_Tuple2(kk_integer_box(kk_integer_from_int32(res, ctx), ctx), kk_integer_box(kk_v, ctx), ctx);
+}
+
+kk_integer_t kk_socket_send_float64(int64_t socket, double v, kk_context_t* ctx) {
+    int res = send(socket, (const char*)&v, sizeof(double), 0);
+    return kk_integer_from_int32(res, ctx);
+}
+
+kk_std_core_types__tuple2 kk_socket_recv_float64(int64_t socket, kk_context_t* ctx) {
+    double recv_buf;
+    int res = recv(socket, (char*)&recv_buf, sizeof(double), 0);
+    return kk_std_core_types__new_Tuple2(kk_integer_box(kk_integer_from_int32(res, ctx), ctx), kk_double_box(recv_buf, ctx), ctx);
 }
 
 kk_integer_t kk_socket_shutdown(int64_t socket, kk_context_t* ctx) {

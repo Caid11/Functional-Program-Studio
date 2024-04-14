@@ -48,7 +48,7 @@ fun main()
     final ctl show-help() print-usage()
 
   with handler
-    final ctl socket-error(msg) println(msg)
+    final ctl socket-error(call, msg) println(call ++ " " ++ msg)
 
   val args = parse-args(get-args())
 
@@ -56,15 +56,14 @@ fun main()
   socket-init()
   with finally{ socket-shutdown() }
 
-  // Game state
-  val world = GameWorld()
-
   // Local state
   val camera = Camera(Vector3(0.0, 10.0, 10.0), 0.0, 0.0)
 
   // Either connect to or start server
+  with handler
+    final ctl server-error(msg) println(msg)
 
-  val server = match args.connect
+  val (server, world, player-id) = match args.connect
     Nothing -> create-local-server()
     Just(addr) -> create-remote-server(addr)
 
@@ -88,10 +87,10 @@ fun main()
       val camera-input = ui.get-camera-input()
       val camera = prev-camera.update(camera-input)
 
-      val local-cmds = ui.get-cmds()
+      val local-cmds = ui.get-cmds(prev-world)
 
       val (world, server) = prev-server
-        .update-conns()
+        .update-conns(world)
         .submit-cmds(local-cmds)
         .poll-cmds()
         .get-updated(prev-world)

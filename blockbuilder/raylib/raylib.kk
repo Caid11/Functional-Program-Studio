@@ -33,6 +33,9 @@ pub struct color
   b : int
   a : int
 
+pub fun color/show(c : color)
+  "[" ++ c.r.show ++ " " ++ c.g.show ++ " " ++ c.b.show ++ " " ++ c.a.show ++ "]"
+
 pub val lightgray = Color(200, 200, 200, 255)
 pub val gray = Color(130, 130, 130, 255)
 pub val darkgray = Color(80, 80, 80, 255)
@@ -185,6 +188,12 @@ pub struct vector3
   x : float64
   y : float64
   z : float64
+
+pub fun vector3/(==)(l : vector3, r : vector3)
+  l.x == r.x && l.y == r.y && l.z == r.z
+
+pub fun vector3/show(v : vector3)
+  "[" ++ v.x.show ++ " " ++ v.y.show ++ " " ++ v.z.show ++ "]"
 
 pub struct matrix
   m0 : float64

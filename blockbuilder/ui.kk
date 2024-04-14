@@ -59,7 +59,7 @@ pub fun render(ui : gameUi, world : gameWorld, camera : camera, cone-mesh : mesh
   val cubeWidth = 2.0
   val cubeHeight = 5.0
   val cubeLength = 2.0
-  drawCube(cubePosition, cubeWidth, cubeHeight, cubeLength, world.color)
+  drawCube(cubePosition, cubeWidth, cubeHeight, cubeLength, world.cube-color)
 
   drawGrid(1000, 1.0)
 
@@ -69,9 +69,11 @@ pub fun render(ui : gameUi, world : gameWorld, camera : camera, cone-mesh : mesh
 
   endDrawing()
 
-pub fun get-cmds(ui : gameUi) : raylib-io list<command>
+pub fun get-cmds(ui : gameUi, world : gameWorld) : raylib-io list<command>
   if isMouseButtonPressed(mouseButtonLeft) then
-    [SwitchColor]
+    match world.cube-color
+      Color(230, 41, 55, 255) -> [SetColor(green)]
+      Color(0, 228, 48, 255) -> [SetColor(red)]
   else []
 
 pub fun get-time(ui : gameUi) : raylib-io duration
