@@ -20,6 +20,13 @@ pub struct gameWorld
   cube-color : color = red
   players : list<player> = []
 
+fun move-player(players : list<player>, player-id, pos)
+  players.map(fn(p : player){
+    if p.player/id == player-id then
+      p(pos = pos)
+    else p
+  })
+
 // pub fun gameWorld/(==)(x : gameWorld, y: gameWorld)
 //   x.rotation == y.rotation
 // 
@@ -38,3 +45,6 @@ pub fun tick(world: gameWorld, cmds : list<command>) : raylib-io (gameWorld, new
       match c
         SetColor(new-color) -> 
           tick(world(cube-color = new-color), cs)
+        PlayerPosition(id, pos) ->
+          val players = world.players.move-player(id, pos)
+          tick(world(players = players), cs)

@@ -45,15 +45,20 @@ pub fun destroy(ui : gameUi) : raylib-io ()
 pub fun exit(ui : gameUi) : raylib-io bool
   windowShouldClose()
 
-pub fun render(ui : gameUi, world : gameWorld, camera : camera, cone-mesh : mesh, material : material) : raylib-io ()
+pub fun render(ui : gameUi, player-id : int, world : gameWorld, camera : camera, cone-mesh : mesh, material : material) : raylib-io ()
   beginDrawing()
 
   clearBackground(raywhite)
 
   beginMode3D(camera.raylib-camera3D)
 
-  val transform = matrixTranslate(0.0, 2.0, 0.0)
-  drawMesh(cone-mesh, material, transform)
+  // Draw a cone at every other player's position
+  world.players.map(fn(p) {
+    if p.player/id == player-id then ()
+    else
+      val transform = matrixTranslate(p.pos.x, p.pos.y, p.pos.z)
+      drawMesh(cone-mesh, material, transform)
+  })
 
   val cubePosition = Vector3(-2.0, 2.0, 0.0)
   val cubeWidth = 2.0
@@ -69,12 +74,20 @@ pub fun render(ui : gameUi, world : gameWorld, camera : camera, cone-mesh : mesh
 
   endDrawing()
 
-pub fun get-cmds(ui : gameUi, world : gameWorld) : raylib-io list<command>
-  if isMouseButtonPressed(mouseButtonLeft) then
-    match world.cube-color
-      Color(230, 41, 55, 255) -> [SetColor(green)]
-      Color(0, 228, 48, 255) -> [SetColor(red)]
-  else []
+pub fun get-cmds(ui : gameUi, player-id : int, world : gameWorld, prev-camera : camera, camera : camera) : raylib-io list<command>
+  val color-switch-command = 
+    if isMouseButtonPressed(mouseButtonLeft) then
+      match world.cube-color
+        Color(230, 41, 55, 255) -> [SetColor(green)]
+        Color(0, 228, 48, 255) -> [SetColor(red)]
+    else []
+
+  val camera-cmd =
+    if prev-camera.position != camera.position then
+      [PlayerPosition(player-id, camera.position)]
+    else []
+
+  color-switch-command ++ camera-cmd
 
 pub fun get-time(ui : gameUi) : raylib-io duration
   ticks()

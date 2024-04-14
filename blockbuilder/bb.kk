@@ -87,19 +87,18 @@ fun main()
       val camera-input = ui.get-camera-input()
       val camera = prev-camera.update(camera-input)
 
-      val local-cmds = ui.get-cmds(prev-world)
+      val local-cmds = ui.get-cmds(player-id, prev-world, prev-camera, camera)
 
-      val (world, server) = prev-server
-        .update-conns(world)
-        .submit-cmds(local-cmds)
-        .poll-cmds()
-        .get-updated(prev-world)
+      val (world-with-players, server-with-conns) = prev-server.update-conns(prev-world)
 
-      server.broadcast-world(prev-world, world)
+      val (world, server) = server-with-conns
+        .recv-cmds()
+        .send-cmds(local-cmds)
+        .apply-cmds(world-with-players)
 
       // Render
 
-      ui.render(world, camera, cone-mesh, default-material)
+      ui.render(player-id, world, camera, cone-mesh, default-material)
   
       loop(server, ui, world, camera)
 
