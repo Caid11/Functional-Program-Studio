@@ -1,8 +1,7 @@
-import std/num/ddouble
 import std/num/float64
+import std/num/ddouble
 import std/os/env
 import std/time/duration
-import std/time/timer
 
 import raylib/raylib
 import socket/socket
@@ -63,7 +62,7 @@ fun main()
   with handler
     final ctl server-error(msg) println(msg)
 
-  val (server, world, player-id) = match args.connect
+  val (server, player-id) = match args.connect
     Nothing -> create-local-server()
     Just(addr) -> create-remote-server(addr)
 
@@ -79,7 +78,7 @@ fun main()
 
   // Game loop
 
-  fun loop(prev-server : server, prev-ui: gameUi, prev-world : gameWorld, prev-camera : camera)
+  fun loop(prev-server : server, prev-ui: gameUi, prev-camera : camera)
     if prev-ui.exit() then ()
     else
       val ui = prev-ui.capture-release-mouse()
@@ -87,19 +86,17 @@ fun main()
       val camera-input = ui.get-camera-input()
       val camera = prev-camera.update(camera-input)
 
-      val local-cmds = ui.get-cmds(player-id, prev-world, prev-camera, camera)
+      val local-cmds = ui.get-cmds(player-id, prev-server.world, prev-camera, camera)
 
-      val (world-with-players, server-with-conns) = prev-server.update-conns(prev-world)
-
-      val (world, server) = server-with-conns
+      val server = prev-server
+        .update-conns()
         .recv-cmds()
         .send-cmds(local-cmds)
-        .apply-cmds(world-with-players)
+        .apply-cmds()
 
       // Render
-
-      ui.render(player-id, world, camera, cone-mesh, default-material)
+      ui.render(player-id, server.world, camera, cone-mesh, default-material)
   
-      loop(server, ui, world, camera)
+      loop(server, ui, camera)
 
-  loop(server, ui, world, camera)
+  loop(server, ui, camera)

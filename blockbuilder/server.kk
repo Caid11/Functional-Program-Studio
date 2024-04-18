@@ -1,7 +1,9 @@
 module server
 
+import std/num/ddouble
 import std/num/int64
 import std/time/duration
+import std/time/timestamp
 import std/time/timer
 
 import raylib/raylib
@@ -26,39 +28,49 @@ fun serverCommand/show(c : serverCommand)
     Just(s) -> s.show
   "[" ++ socket-str ++ " " ++ c.cmd.show ++ "]"
 
-pub type server
-  LocalServer(last-update : duration, pending-cmds : list<serverCommand>, listen-socket : socket, client-sockets : list<socket>)
-  RemoteServer(last-update : duration, socket : socket, pending-cmds : list<serverCommand>)
+pub type session
+  ClientSession(server-socket : socket)
+  ServerSession(listen-socket : socket, client-sockets : list<socket>)
 
-pub fun print-client-sockets(s : server)
-  match s
-    RemoteServer -> ()
-    LocalServer(_, _, _, sockets) ->
-      val socket-str = sockets.map(show).join(" ")
-      println(socket-str)
+fun create-client-session(addr : string) : _e session
+  val server-socket = create-socket()
+  server-socket.connect(addr, game-port)
 
+  ClientSession(server-socket)
 
-pub fun create-local-server() : <socket-io,socket-error> (server, gameWorld, int)
+fun create-server-session() : _e session
   val listen-socket = create-socket()
   listen-socket.bind("127.0.0.1", game-port)
   listen-socket.listen()
 
+  ServerSession(listen-socket, [])
+
+pub struct server
+  last-update : duration
+  pending-cmds : list<serverCommand>
+  session : session
+  world : gameWorld
+
+pub fun create-local-server() : <socket-io,socket-error> (server, int)
+  val server-session = create-server-session()
+
   val local-player = create-player(0)
   val world = GameWorld(red, [local-player])
 
-  (LocalServer(ticks(), [], listen-socket, []), world, local-player.id)
+  (Server(ticks(), [], server-session, world), local-player.id)
 
-pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-error> (server, gameWorld, int)
-  val new-socket = create-socket()
-  new-socket.connect(addr, game-port)
+pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-error> (server, int)
+  val client-session = create-client-session(addr)
+  val server-socket = match client-session
+    ClientSession(s) -> s
 
   // Wait for server to send world info.
-  fun get-initial-world-info(maybe-player-id = Nothing, players = [], maybe-world-color = Nothing) : _e (server, gameWorld, int)
+  fun get-initial-world-info(maybe-player-id = Nothing, players = [], maybe-world-color = Nothing) : _e (server, int)
     // TODO: We should probably have a timeout here
     // Wait for server to send data
-    select([new-socket], [], [], True)
+    select([server-socket], [], [], True)
 
-    match new-socket.read-command()
+    match server-socket.read-command()
       ConnectedPlayerId(id) ->
         get-initial-world-info(Just(id), players, maybe-world-color)
       PlayerPosition(id, position) ->
@@ -79,7 +91,7 @@ pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-err
           Just(c) -> c
 
         val world = GameWorld(world-color, players)
-        (RemoteServer(ticks(), new-socket, []), world, player-id)
+        (Server(ticks(), [], client-session, world), player-id)
 
   get-initial-world-info()
 
@@ -89,20 +101,20 @@ fun accept-all-pending(s : socket, accepted : list<socket> = []) : <socket-io,so
     Just(new-socket) ->
       s.accept-all-pending(accepted ++ [new-socket])
  
-pub fun update-conns(s : server, world : gameWorld) : <socket-io,socket-error> (gameWorld, server)
-  match s
-    RemoteServer -> (world, s)
-    LocalServer(last-update, pending-cmds, listen-socket, client-sockets) ->
+pub fun update-conns(server : server) : <socket-io,socket-error> server
+  match server.session
+    ClientSession -> server
+    ServerSession(listen-socket, client-sockets) ->
       val accepted = listen-socket.accept-all-pending()
 
       // Send player IDs and world state to each player.
-      val first-id : int = world.players.map(fn(p){ p.id }).maximum + 1
+      val first-id : int = server.world.players.map(fn(p){ p.id }).maximum + 1
       val player-ids = accepted.map-indexed(fn(i, _){i + first-id})
       
       fun send-initial-state((s, player-id))
         s.write-command(ConnectedPlayerId(player-id))
-        s.write-command(SetColor(world.cube-color))
-        world.players.map(fn(p){
+        s.write-command(SetColor(server.world.cube-color))
+        server.world.players.map(fn(p){
           s.write-command(PlayerPosition(p.id, p.pos))
         })
         s.write-command(ServerConnectFinished)
@@ -111,9 +123,13 @@ pub fun update-conns(s : server, world : gameWorld) : <socket-io,socket-error> (
 
       // Add new players to world.
       val new-players = player-ids.map(fn(i){ Player(i, Vector3(0.0, 0.0, 0.0))})
-      val new-world = world(players = world.players ++ new-players)
+      
+      val prev-world = server.world
+      val new-world = prev-world(players = prev-world.players ++ new-players)
 
-      (new-world, LocalServer(last-update, pending-cmds, listen-socket, client-sockets ++ accepted))
+      val updated-session = ServerSession(listen-socket, client-sockets ++ accepted)
+
+      server(session = updated-session, world = new-world)
 
 fun update-world(world : gameWorld, cmds : list<command>, elapsed : duration)
   if elapsed <= ms-per-update then world
@@ -127,34 +143,23 @@ fun read-color(s : socket) : <socket-io,socket-error> color
   Color(color-bytes[0], color-bytes[1], color-bytes[2], color-bytes[3])
 
 pub fun send-cmds(s : server, new-cmds : list<command>) : <socket-io,socket-error> server
-  match s
-    LocalServer(last-update, pending-cmds, listen-socket, client-sockets) ->
-      val local-cmds = new-cmds.map(fn(c){ ServerCommand(Nothing, c)})
-      val cmds = pending-cmds ++ local-cmds
+  val send-sockets = match s.session
+    ServerSession(_, client-sockets) -> client-sockets
+    ClientSession(server-socket) -> [server-socket]
 
-      client-sockets.map(fn(client-sock){
-        val to-send = cmds.filter(fn(c){
-          match c.send-socket
-            Nothing -> True
-            Just(sock) -> sock != client-sock
-        }).map(fn(c){ c.cmd })
+  val local-cmds = new-cmds.map(fn(c){ ServerCommand(Nothing, c)})
+  val cmds = s.pending-cmds ++ local-cmds
 
-        to-send.map(fn(c){ client-sock.write-command(c) })
-      })
-      LocalServer(last-update, cmds, listen-socket, client-sockets)
+  send-sockets.map(fn(sock){
+    val to-send = cmds.filter(fn(c){
+      match c.send-socket
+        Nothing -> True
+        Just(s) -> s != sock
+    }).map(fn(c){ c.cmd })
 
-    RemoteServer(last-update, server-socket, pending-cmds) ->
-      val local-cmds = new-cmds.map(fn(c){ ServerCommand(Nothing, c)})
-      val cmds = pending-cmds ++ local-cmds
-
-      val to-send = cmds.filter(fn(c){
-        match c.send-socket
-          Nothing -> True
-          Just(sock) -> sock != server-socket
-      }).map(fn(c){ c.cmd })
-      to-send.map(fn(c){ server-socket.write-command(c) })
-
-      RemoteServer(last-update, server-socket, cmds)
+    to-send.map(fn(c){ sock.write-command(c) })
+  })
+  s(pending-cmds = cmds)
 
 fun get-cmds(s : socket, cmds = []) : <socket-io,socket-error> list<serverCommand>
   val select-res = select([s], [], [], False)
@@ -165,27 +170,15 @@ fun get-cmds(s : socket, cmds = []) : <socket-io,socket-error> list<serverComman
     s.get-cmds(cmds ++ [curr-cmd])
 
 pub fun recv-cmds(s : server) : <socket-io,socket-error> server
-  match s
-    RemoteServer(last-update, server-socket, pending-cmds) -> 
-      val cmds = server-socket.get-cmds()
-      RemoteServer(last-update, server-socket, pending-cmds ++ cmds)
-    LocalServer(last-update, pending-cmds, listen-socket, client-sockets) ->
-      match client-sockets
-        Nil -> s
-        _ ->
-          val cmds = client-sockets.map( fn(s){ s.get-cmds } ).flatmap(fn(l){ l })
-          LocalServer(last-update, pending-cmds ++ cmds, listen-socket, client-sockets)
+  val recieved-cmds = match s.session
+    ClientSession(server-socket) -> server-socket.get-cmds()
+    ServerSession(_, client-sockets) ->
+      client-sockets.map( fn(s){ s.get-cmds } ).flatmap(fn(l){ l })
 
-pub fun apply-cmds(s : server, prev-world : gameWorld) : <socket-io, socket-error> (gameWorld, server)
-   match s
-    LocalServer(last-update, cmds, listen-socket, client-sockets) ->
-      val curr-time = ticks()
-      val elapsed = curr-time - last-update
-      val new-world = update-world(prev-world, cmds.map(fn(c){ c.cmd }), elapsed)
-      (new-world, LocalServer(curr-time, [], listen-socket, client-sockets))
+  s(pending-cmds = s.pending-cmds ++ recieved-cmds)
 
-    RemoteServer(last-update, server-socket, pending-cmds) ->
-      val curr-time = ticks()
-      val elapsed = curr-time - last-update
-      val new-world = update-world(prev-world, pending-cmds.map(fn(c){ c.cmd }), elapsed)
-      (new-world, RemoteServer(curr-time, server-socket, []))
+pub fun apply-cmds(s : server) : <socket-io, socket-error> server
+  val curr-time = ticks()
+  val elapsed = ticks() - s.last-update
+  val new-world = update-world(s.world, s.pending-cmds.map(fn(c){ c.cmd }), elapsed)
+  s(last-update = curr-time, world = new-world, pending-cmds = [])

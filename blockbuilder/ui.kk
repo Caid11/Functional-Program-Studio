@@ -1,6 +1,7 @@
 module ui
 
 import std/time/duration
+import std/time/timestamp
 import std/time/timer
 
 import raylib/raylib
