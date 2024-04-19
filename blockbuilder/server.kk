@@ -2,9 +2,10 @@ module server
 
 import std/num/ddouble
 import std/num/int64
+import std/num/float64
 import std/time/duration
-import std/time/timestamp
-import std/time/timer
+// import std/time/timestamp
+// import std/time/timer
 
 import raylib/raylib
 import socket/socket
@@ -46,7 +47,9 @@ fun create-server-session() : _e session
   ServerSession(listen-socket, [])
 
 pub struct server
-  last-update : duration
+  // last-update : duration
+  bleh : duration
+  last-update : float64
   pending-cmds : list<serverCommand>
   session : session
   world : gameWorld
@@ -57,7 +60,8 @@ pub fun create-local-server() : <socket-io,socket-error> (server, int)
   val local-player = create-player(0)
   val world = GameWorld(red, [local-player])
 
-  (Server(ticks(), [], server-session, world), local-player.id)
+  // (Server(ticks(), [], server-session, world), local-player.id)
+  (Server(duration(0.0), 0.0, [], server-session, world), local-player.id)
 
 pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-error> (server, int)
   val client-session = create-client-session(addr)
@@ -91,7 +95,8 @@ pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-err
           Just(c) -> c
 
         val world = GameWorld(world-color, players)
-        (Server(ticks(), [], client-session, world), player-id)
+        // (Server(ticks(), [], client-session, world), player-id)
+        (Server(duration(0.0), 0.0, [], client-session, world), player-id)
 
   get-initial-world-info()
 
@@ -131,12 +136,20 @@ pub fun update-conns(server : server) : <socket-io,socket-error> server
 
       server(session = updated-session, world = new-world)
 
-fun update-world(world : gameWorld, cmds : list<command>, elapsed : duration)
+// fun update-world(world : gameWorld, cmds : list<command>, elapsed : duration)
+//   if elapsed <= ms-per-update then world
+//   else
+//     val (new-world,new-cmds) = world.tick(cmds)
+//     val new-elapsed = elapsed - ms-per-update
+//     update-world(new-world, new-cmds, new-elapsed)
+
+fun update-world(world : gameWorld, cmds : list<command>, elapsed : float64)
   if elapsed <= ms-per-update then world
   else
     val (new-world,new-cmds) = world.tick(cmds)
     val new-elapsed = elapsed - ms-per-update
     update-world(new-world, new-cmds, new-elapsed)
+
 
 fun read-color(s : socket) : <socket-io,socket-error> color
   val color-bytes = s.recv(4).vector/map(int)
@@ -178,7 +191,9 @@ pub fun recv-cmds(s : server) : <socket-io,socket-error> server
   s(pending-cmds = s.pending-cmds ++ recieved-cmds)
 
 pub fun apply-cmds(s : server) : <socket-io, socket-error> server
-  val curr-time = ticks()
-  val elapsed = ticks() - s.last-update
+  // val curr-time = ticks()
+  // val elapsed = ticks() - s.last-update
+  val curr-time = 0.0
+  val elapsed = 0.0 - s.last-update
   val new-world = update-world(s.world, s.pending-cmds.map(fn(c){ c.cmd }), elapsed)
   s(last-update = curr-time, world = new-world, pending-cmds = [])

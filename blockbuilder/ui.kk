@@ -1,8 +1,8 @@
 module ui
 
-import std/time/duration
-import std/time/timestamp
-import std/time/timer
+// import std/time/duration
+// import std/time/timestamp
+// import std/time/timer
 
 import raylib/raylib
 
@@ -90,8 +90,10 @@ pub fun get-cmds(ui : gameUi, player-id : int, world : gameWorld, prev-camera : 
 
   color-switch-command ++ camera-cmd
 
-pub fun get-time(ui : gameUi) : raylib-io duration
-  ticks()
+// pub fun get-time(ui : gameUi) : raylib-io duration
+//   ticks()
+pub fun get-time(ui : gameUi) : raylib-io float64
+  0.0
 
 pub fun is-key-down(ui : gameUi, key : int) : raylib-io bool
   isKeyDown(key)

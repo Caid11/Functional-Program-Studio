@@ -33,7 +33,8 @@ fun move-player(players : list<player>, player-id, pos)
 // pub fun gameWorld/show(world: gameWorld)
 //   "GameWorld(" ++ world.rotation.show ++ ")"
 
-pub val ms-per-update = duration(1.0 / 60.0)
+// pub val ms-per-update = duration(1.0 / 60.0)
+pub val ms-per-update : float64 = 1.0 / 60.0
 
 val rotation-rate : float64 = 0.01
 
