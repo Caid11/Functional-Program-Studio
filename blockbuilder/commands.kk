@@ -9,6 +9,11 @@ pub type command
   SetColor(c : color)
   ServerConnectFinished
 
+pub effect cmd-op
+  ctl cmd-yield(s : socket) : ()
+  ctl cmd-read(c : command) : ()
+  ctl cmd-closed(c : command) : ()
+
 pub fun command/(==)(x : command, y : command)
   match x
     ConnectedPlayerId(id-x) ->
@@ -72,10 +77,7 @@ pub fun write-command(s : socket, c : command) : <socket-io, socket-error> ()
 
   ()
 
-
-pub fun read-command(s : socket) : <socket-io, socket-error> command
-  // TODO: Calling select for every recv is messy
-
+pub fun read-command(s : socket) : <socket-io, socket-error, cmd-op> command
   select([s], [], [], True)
   val command-id : char = s.recv()
 
@@ -110,3 +112,47 @@ pub fun read-command(s : socket) : <socket-io, socket-error> command
       SetColor(Color(r, g, b, a))
 
     4 -> ServerConnectFinished
+
+fun yield-until-readable(s : socket)
+    if ! select([s], [], [], False).is-readable(s) then
+      cmd-yield(s)
+      s.yield-until-readable()
+    else ()
+
+pub fun read-commands(s : socket) : <socket-io, socket-error, cmd-op> ()
+  s.yield-until-readable()
+  val command-id : char = s.recv()
+
+  match command-id.int
+    1 ->
+      s.yield-until-readable()
+      val player-id : int = s.recv()
+      cmd-read(ConnectedPlayerId(player-id))
+    2 ->
+      s.yield-until-readable()
+      val player-id : int = s.recv()
+
+      s.yield-until-readable()
+      val pos-x : float64 = s.recv()
+      s.yield-until-readable()
+      val pos-y : float64 = s.recv()
+      s.yield-until-readable()
+      val pos-z : float64 = s.recv()
+
+      cmd-read(PlayerPosition(player-id, Vector3(pos-x, pos-y, pos-z)))
+
+    3 ->
+      s.yield-until-readable()
+      val r : int = s.recv()
+      s.yield-until-readable()
+      val g : int = s.recv()
+      s.yield-until-readable()
+      val b : int = s.recv()
+      s.yield-until-readable()
+      val a : int = s.recv()
+
+      cmd-read(SetColor(Color(r, g, b, a)))
+
+    4 -> cmd-read(ServerConnectFinished)
+  
+  s.read-commands()

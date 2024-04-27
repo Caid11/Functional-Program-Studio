@@ -48,6 +48,7 @@ fun create-server-session() : _e session
 pub struct server
   last-update : duration
   pending-cmds : list<serverCommand>
+  cmd-reads : list<a>
   session : session
   world : gameWorld
 
@@ -57,20 +58,18 @@ pub fun create-local-server() : <socket-io,socket-error> (server, int)
   val local-player = create-player(0)
   val world = GameWorld(red, [local-player])
 
-  (Server(ticks(), [], server-session, world), local-player.id)
+  (Server(ticks(), [], [], [], server-session, world), local-player.id)
 
 pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-error> (server, int)
+  with ctl cmd-yield(s) server-error("unexpected cmd yield")
+
   val client-session = create-client-session(addr)
   val server-socket = match client-session
     ClientSession(s) -> s
 
   // Wait for server to send world info.
   fun get-initial-world-info(maybe-player-id = Nothing, players = [], maybe-world-color = Nothing) : _e (server, int)
-    // TODO: We should probably have a timeout here
-    // Wait for server to send data
-    select([server-socket], [], [], True)
-
-    match server-socket.read-command()
+    match server-socket.read-command(True)
       ConnectedPlayerId(id) ->
         get-initial-world-info(Just(id), players, maybe-world-color)
       PlayerPosition(id, position) ->
@@ -91,9 +90,9 @@ pub fun create-remote-server(addr : string) : <socket-io,socket-error,server-err
           Just(c) -> c
 
         val world = GameWorld(world-color, players)
-        (Server(ticks(), [], client-session, world), player-id)
+        (Server(ticks(), [], [], [], client-session, world), player-id)
 
-  get-initial-world-info()
+  val server = get-initial-world-info()
 
 fun accept-all-pending(s : socket, accepted : list<socket> = []) : <socket-io,socket-error> list<socket>
   match s.accept()
@@ -161,21 +160,60 @@ pub fun send-cmds(s : server, new-cmds : list<command>) : <socket-io,socket-erro
   })
   s(pending-cmds = cmds)
 
-fun get-cmds(s : socket, cmds = []) : <socket-io,socket-error> list<serverCommand>
+fun get-cmds(s : socket, cmds = []) : <socket-io,socket-error, cmd-yield> a
+  with ctl cmd-yield(s)
+    (cmds, Just((s, resume)))
+
   val select-res = select([s], [], [], False)
   if !select-res.is-readable(s) then
-    cmds
+    (cmds, Nothing)
   else
     val curr-cmd = ServerCommand(Just(s), s.read-command())
     s.get-cmds(cmds ++ [curr-cmd])
 
-pub fun recv-cmds(s : server) : <socket-io,socket-error> server
-  val recieved-cmds = match s.session
-    ClientSession(server-socket) -> server-socket.get-cmds()
-    ServerSession(_, client-sockets) ->
-      client-sockets.map( fn(s){ s.get-cmds } ).flatmap(fn(l){ l })
+fun resume-in-flight(r : a) : <socket-io,socket-error, cmd-yield> a
+  with ctl cmd-yield(s)
+    (cmds, Just((s, resume)))
 
-  s(pending-cmds = s.pending-cmds ++ recieved-cmds)
+  val select-res = select([s], [], [], False)
+  if !select-res.is-readable(s) then
+    (cmds, Nothing)
+  else
+    val curr-cmd = ServerCommand(Just(s), s.read-command())
+    s.get-cmds(cmds ++ [curr-cmd])
+
+
+pub fun recv-cmds(s : server) : <socket-io,socket-error> server
+  var in-flight-reads := []
+  var in-flight-sockets := []
+  with ctl cmd-yield(s)
+    in-flight-reads := in-flight-reads ++ [resume]
+    in-flight-sockets := in-flight-sockets ++ [s]
+
+  val receive-sockets = match s.session
+    ClientSession(server-socket) -> [server-socket]
+    ServerSession(_, client-sockets) -> client-sockets
+
+  val received-res = receive-sockets
+    // Only read on sockets that don't have outstanding commands
+    .filter(fn(s){ s.in-flight-sockets.index-of( fn(sock){ sock == s }) == -1 })
+
+    // Read commands from all other sockets
+    .map( fn(s){ s.get-cmds } )
+    .flatmap(fn(l){ l })
+
+  val received-cmds = received-res.flatmap( fn((cmds, _)){ cmds })
+
+  val in-flight-pairs = received-res.filter( is-just ).map( unjust )
+  val in-flight-reads = in-flight-pairs.map( fn((_,r)){ r })
+  val in-flight-sockets = in-flight-pairs.map( fn((s,_)){ s })
+
+  // Attempt to resume reading in flight commands
+  val in-flight-cmds = s.in-flight-reads.map( fn(res){ res() })
+
+  val new-pending-cmds = s.pending-cmds ++ recieved-cmds ++ in-flight-cmds 
+
+  s(pending-cmds = new-pending-cmds, in-flight-reads = in-flight-reads, in-flight-sockets = in-flight-sockets)
 
 pub fun apply-cmds(s : server) : <socket-io, socket-error> server
   val curr-time = ticks()

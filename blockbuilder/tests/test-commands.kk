@@ -43,6 +43,9 @@ fun close-test-sockets(client-socket, server-socket)
 fun send-recv-connectedPlayerId()
   with final ctl socket-error(cmd, msg)
     test-fail("Socket error: (" ++ cmd ++ ")" ++ msg)
+
+  with final ctl cmd-yield()
+    test-fail("Didn't expect command yield.")
   
   val (client-socket, server-socket) = make-test-sockets()
   with finally{ close-test-sockets(client-socket, server-socket) }
@@ -51,7 +54,7 @@ fun send-recv-connectedPlayerId()
 
   client-socket.write-command(command)
 
-  val res = server-socket.read-command()
+  val res = server-socket.read-command(True)
 
   if res != command then
     test-fail("Bad command received (" ++ res.show ++ ")")
@@ -65,6 +68,9 @@ val send-recv-connectedPlayerId-test = Test(
 fun send-recv-PlayerPosition()
   with final ctl socket-error(cmd, msg)
     test-fail("Socket error: (" ++ cmd ++ ")" ++ msg)
+
+  with final ctl cmd-yield()
+    test-fail("Didn't expect command yield.")
   
   val (client-socket, server-socket) = make-test-sockets()
   with finally{ close-test-sockets(client-socket, server-socket) }
@@ -73,7 +79,7 @@ fun send-recv-PlayerPosition()
 
   client-socket.write-command(command)
 
-  val res = server-socket.read-command()
+  val res = server-socket.read-command(True)
   if res != command then
     test-fail("Bad command received (" ++ res.show ++ ")")
   else ()
@@ -83,9 +89,41 @@ val send-recv-PlayerPosition-test = Test(
   send-recv-PlayerPosition
 )
 
+fun send-recv-PlayerPositionWithYield()
+  with final ctl socket-error(cmd, msg)
+    test-fail("Socket error: (" ++ cmd ++ ")" ++ msg)
+
+  val (client-socket, server-socket) = make-test-sockets()
+  with finally{ close-test-sockets(client-socket, server-socket) }
+
+  val command = PlayerPosition(5, Vector3(1.0, 2.0, 3.0))
+
+  var cmd-yielded := False
+  with ctl cmd-yield()
+    if cmd-yielded then test-fail("Command should only have yielded once")
+    else cmd-yielded := True
+
+    client-socket.write-command(command)
+    resume(())
+
+  // This should yield, then the effect handler should write the command
+  val res = server-socket.read-command(False)
+
+  if res != command then
+    test-fail("Bad command received (" ++ res.show ++ ")")
+  else ()
+
+val send-recv-PlayerPositionWithYield-test = Test(
+  "send-recv-PlayerPositionWithYield",
+  send-recv-PlayerPositionWithYield
+)
+
 fun send-recv-serverConnectFinished()
   with final ctl socket-error(cmd, msg)
     test-fail("Socket error: (" ++ cmd ++ ")" ++ msg)
+
+  with final ctl cmd-yield()
+    test-fail("Didn't expect command yield.")
   
   val (client-socket, server-socket) = make-test-sockets()
   with finally{ close-test-sockets(client-socket, server-socket) }
@@ -94,7 +132,7 @@ fun send-recv-serverConnectFinished()
 
   client-socket.write-command(command)
 
-  val res = server-socket.read-command()
+  val res = server-socket.read-command(True)
 
   if res != command then
     test-fail("Bad command received (" ++ res.show ++ ")")
@@ -111,5 +149,6 @@ pub val command-tests = Case(
     send-recv-serverConnectFinished-test,
     send-recv-connectedPlayerId-test,
     send-recv-PlayerPosition-test,
+    send-recv-PlayerPositionWithYield-test
   ]
 )
